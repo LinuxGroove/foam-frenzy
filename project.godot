@@ -1,0 +1,59 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Foam Frenzy"
+config/description="Foam darts, pillow forts and up to eight friends. Every dart you fire is a dart someone else can pick up."
+config/version="0.1.0"
+run/main_scene="res://game/main.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+boot_splash/bg_color=Color(0.07, 0.11, 0.2, 1)
+boot_splash/show_image=false
+config/icon="res://icon.svg"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="foam-frenzy"
+
+[autoload]
+
+LGSettings="*res://addons/linuxgroove/core/settings.gd"
+LGAudio="*res://addons/linuxgroove/core/audio_director.gd"
+LGInput="*res://addons/linuxgroove/input/input_router.gd"
+LGScenes="*res://addons/linuxgroove/core/scene_switcher.gd"
+Nakama="*res://addons/com.heroiclabs.nakama/Nakama.gd"
+LGOnline="*res://addons/linuxgroove/online/online_service.gd"
+Session="*res://game/net/session.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=0
+
+[gui]
+
+common/drop_mouse_on_gui_input_disabled=true
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=false
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.07, 0.11, 0.2, 1)
+anti_aliasing/quality/msaa_3d=1

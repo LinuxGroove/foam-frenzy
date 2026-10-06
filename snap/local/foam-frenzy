@@ -1,0 +1,4 @@
+#!/bin/sh
+# Starts the exported game. Release builds of Godot don't accept --main-pack;
+# they load foam-frenzy.pck from beside the binary on their own.
+exec "$SNAP/game/foam-frenzy" "$@"
