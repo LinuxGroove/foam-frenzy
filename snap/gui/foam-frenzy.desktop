@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Foam Frenzy
+Comment=Foam dart blaster battles for up to eight friends, on one screen or many.
+Exec=foam-frenzy
+Icon=${SNAP}/meta/gui/foam-frenzy.svg
+Categories=Game;ActionGame;
+Keywords=party;shooter;couch;local;multiplayer;lan;
+StartupWMClass=Foam Frenzy

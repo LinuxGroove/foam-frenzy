@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  GODOT_VERSION: 4.7.2
+
+defaults:
+  run:
+    # Named explicitly so pipefail is on and a failing Godot run fails the
+    # step even though its output goes through tee.
+    shell: bash
+
+jobs:
+  test:
+    name: Godot checks and bot matches
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot
+        run: |
+          curl -sSfL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+      - name: Import
+        run: godot --headless --path . --import
+      - name: Check every script
+        run: godot --headless --path . tools/check_scripts.tscn 2>&1 | tee check.log; ! grep -q "SCRIPT ERROR" check.log
+      - name: Run tests
+        timeout-minutes: 20
+        run: godot --headless --path . tests/run_tests.tscn -- --games=5 2>&1 | tee test.log; ! grep -q "SCRIPT ERROR" test.log
