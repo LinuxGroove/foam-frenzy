@@ -1,0 +1,11 @@
+# Godot
+.godot/
+/android/
+*.translation
+
+# Builds and packaging
+/build/
+*.snap
+/parts/
+/stage/
+/prime/
