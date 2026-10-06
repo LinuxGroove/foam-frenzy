@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b4fb8"/>
+      <stop offset="1" stop-color="#132457"/>
+    </linearGradient>
+    <linearGradient id="foam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb04a"/>
+      <stop offset="1" stop-color="#f2711c"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <!-- the splat where a dart lands -->
+  <path d="M128 40 l14 40 40 -22 -18 40 44 6 -40 22 30 32 -42 -8 -4 44 -24 -36 -24 36 -4 -44 -42 8 30 -32 -40 -22 44 -6 -18 -40 40 22z" fill="#ffd23f"/>
+  <!-- two crossed foam darts -->
+  <g transform="rotate(-38 128 140)">
+    <rect x="58" y="126" width="118" height="28" rx="6" fill="url(#foam)" stroke="#5a2a0a" stroke-width="6"/>
+    <path d="M176 126 h14 a14 14 0 0 1 0 28 h-14z" fill="#3e8bff" stroke="#10306e" stroke-width="6"/>
+    <path d="M58 126 l-18 -12 v52 l18 -12z" fill="#ff5a4f" stroke="#5a2a0a" stroke-width="5" stroke-linejoin="round"/>
+  </g>
+  <g transform="rotate(38 128 140)">
+    <rect x="58" y="126" width="118" height="28" rx="6" fill="url(#foam)" stroke="#5a2a0a" stroke-width="6"/>
+    <path d="M176 126 h14 a14 14 0 0 1 0 28 h-14z" fill="#3e8bff" stroke="#10306e" stroke-width="6"/>
+    <path d="M58 126 l-18 -12 v52 l18 -12z" fill="#7ee36b" stroke="#1f5a14" stroke-width="5" stroke-linejoin="round"/>
+  </g>
+</svg>
