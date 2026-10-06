@@ -14,6 +14,7 @@ description: |
     online through a LinuxGroove game server
   - Fill empty spots with bots, or warm up in a guided practice round
   - Made for controllers and handhelds, fully playable with a keyboard
+icon: icon.png
 grade: stable
 confinement: strict
 compression: lzo
