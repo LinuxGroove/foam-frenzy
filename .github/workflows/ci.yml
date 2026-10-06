@@ -32,3 +32,11 @@ jobs:
       - name: Run tests
         timeout-minutes: 20
         run: godot --headless --path . tests/run_tests.tscn -- --games=5 2>&1 | tee test.log; ! grep -q "SCRIPT ERROR" test.log
+      - name: Play a match between two copies over the network
+        timeout-minutes: 5
+        run: |
+          godot --headless --path . tools/net_check.tscn -- host net.code lan > host.log 2>&1 &
+          sleep 1
+          godot --headless --path . tools/net_check.tscn -- join net.code lan 2>&1 | tee join.log
+          wait $! && cat host.log
+          grep -q "NET OK host" host.log && grep -q "NET OK join" join.log

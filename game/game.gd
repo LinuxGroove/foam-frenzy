@@ -255,7 +255,7 @@ func broadcast(method: String, args: Array) -> void:
 func to_host(method: String, args: Array) -> void:
 	if Session.is_host():
 		callv(method, args)
-	else:
+	elif 1 in multiplayer.get_peers():
 		var call_args := [1, method]
 		call_args.append_array(args)
 		callv("rpc_id", call_args)

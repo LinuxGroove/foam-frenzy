@@ -296,7 +296,6 @@ func host_online() -> bool:
 	if code == "":
 		status.emit(LGOnline.last_error)
 		return false
-	multiplayer.multiplayer_peer = LGOnline.bridge.multiplayer_peer
 	mode = Mode.ONLINE_HOST
 	join_code = code
 	_apply_seats(1, _seat_payload())
@@ -314,11 +313,16 @@ func join_online(code: String) -> bool:
 	if not await LGOnline.join_room_async(GameConfig.GAME_ID, code):
 		status.emit("No room with code %s." % LGOnline.normalize_code(code))
 		return false
-	multiplayer.multiplayer_peer = LGOnline.bridge.multiplayer_peer
+	# A code nobody is using opens a new, empty room with us as its host.
+	# Don't sit in it waiting for a host who isn't coming.
+	if LGOnline.bridge.multiplayer_peer.get_unique_id() == 1:
+		leave()
+		status.emit("No room with code %s. Check the code with the host." % LGOnline.normalize_code(code))
+		return false
 	mode = Mode.ONLINE_CLIENT
 	join_code = LGOnline.normalize_code(code)
-	# The bridge reports the host as connected right away.
-	_send_hello.call_deferred()
+	# connected_to_server has already sent the hello: the bridge announced
+	# the host while joining.
 	return true
 
 
@@ -327,9 +331,10 @@ func leave(reason := "") -> void:
 	var was := mode
 	get_tree().paused = false
 	_beacon.stop()
-	if is_online():
+	if is_online() or LGOnline.bridge:
+		# The bridge's peer can't be closed directly; leaving the room does it.
 		LGOnline.leave_room()
-	if multiplayer.multiplayer_peer and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
+	elif multiplayer.multiplayer_peer and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	mode = Mode.NONE
@@ -511,6 +516,10 @@ func _check_hello(id: int) -> void:
 func _on_peer_disconnected(id: int) -> void:
 	_pending_hello.erase(id)
 	if not is_host():
+		# Online rooms only say the host's presence left (ENet also sends
+		# server_disconnected). Deferred: this runs inside the peer's poll.
+		if id == 1 and is_online():
+			leave.call_deferred("The host left the game.")
 		return
 	var names := []
 	for aid in players.keys():
@@ -652,7 +661,10 @@ func _kick(id: int, reason: String) -> void:
 
 
 func _disconnect_peer(id: int) -> void:
-	if multiplayer.multiplayer_peer and multiplayer.multiplayer_peer.has_method("disconnect_peer"):
+	# Online rooms can't drop a player; the kicked game leaves by itself.
+	if is_online() or not multiplayer.has_multiplayer_peer():
+		return
+	if id in multiplayer.get_peers():
 		multiplayer.multiplayer_peer.disconnect_peer(id)
 
 

@@ -72,6 +72,16 @@ godot --path . -- --practice                                  # straight into th
 screen (run it under `xvfb-run`; options are listed at the top of
 `tools/screenshot.gd`).
 
+`tools/net_check.tscn` plays a short match between two copies of the game,
+over the local network or online through a game server (for example the
+[game-server](https://github.com/LinuxGroove/game-server) Compose setup on
+localhost):
+
+```sh
+godot --headless --path . tools/net_check.tscn -- host /tmp/code [lan] &
+godot --headless --path . tools/net_check.tscn -- join /tmp/code [lan]
+```
+
 ## Snap
 
 `snapcraft pack` builds a strictly confined snap, `foam-frenzy`, with the
@@ -80,7 +90,8 @@ runs the same on an Ubuntu desktop and on a handheld's gamepad shell. See
 [docs/packaging.md](docs/packaging.md).
 
 Two workflows run on GitHub: **CI** (`.github/workflows/ci.yml`) checks every
-script and runs the tests; **Snap** (`.github/workflows/snap.yml`) builds the
+script, runs the tests and plays a match between two copies over the network;
+**Snap** (`.github/workflows/snap.yml`) builds the
 snap for amd64 and arm64 and publishes to the candidate channel when a release
 is published.
 

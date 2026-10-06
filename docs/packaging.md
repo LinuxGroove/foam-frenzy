@@ -23,7 +23,7 @@ Build locally with `snapcraft pack`.
 
 | Workflow | When | What |
 |---|---|---|
-| CI (`.github/workflows/ci.yml`) | Every push to `main` and every pull request | Imports the project, checks every script compiles and runs the tests, including whole bot matches |
+| CI (`.github/workflows/ci.yml`) | Every push to `main` and every pull request | Imports the project, checks every script compiles, runs the tests (including whole bot matches) and plays a match between two copies of the game over the network |
 | Snap (`.github/workflows/snap.yml`) | Every push to `main`, every pull request, and published releases | Builds the snap on amd64 and arm64 runners and uploads each as an artifact. On a published release it also uploads to the store's candidate channel, using the `SNAPCRAFT_STORE_CREDENTIALS` secret |
 
 ## Interfaces

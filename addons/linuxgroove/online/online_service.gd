@@ -75,8 +75,8 @@ func connect_async(display_name: String, game_id: String) -> bool:
 	return true
 
 
-## Creates a relay room and returns its code ("" on failure). The caller then
-## sets `multiplayer.multiplayer_peer = LGOnline.bridge.multiplayer_peer`.
+## Creates a relay room and returns its code ("" on failure). The scene
+## tree's multiplayer is already using `LGOnline.bridge.multiplayer_peer`.
 func host_room_async(game_id: String) -> String:
 	var code := _new_code()
 	if await _join_named(game_id, code):
@@ -134,6 +134,11 @@ func _join_named(game_id: String, code: String) -> bool:
 		return false
 	leave_room()
 	bridge = NakamaMultiplayerBridge.new(socket)
+	# The bridge announces the host the moment it joins, before this returns,
+	# so the scene's multiplayer must already be listening or it never learns
+	# that peer 1 is there (and drops everything the host sends).
+	var mp := get_tree().get_multiplayer()
+	mp.multiplayer_peer = bridge.multiplayer_peer
 	var result := {"done": false, "ok": false}
 	bridge.match_joined.connect(func():
 		result.ok = true
@@ -148,6 +153,7 @@ func _join_named(game_id: String, code: String) -> bool:
 		waited += 0.1
 	if not result.ok:
 		bridge = null
+		mp.multiplayer_peer = OfflineMultiplayerPeer.new()
 		return _fail("Could not join room %s" % code)
 	room_code = code
 	return true
