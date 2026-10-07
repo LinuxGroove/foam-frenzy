@@ -12,10 +12,14 @@ extends Node
 ## and the server needs no custom logic for it.
 
 signal status_changed(status: String)
+signal _join_settled
 
 ## No look-alikes in the Kenney fonts (0/O, 1/I/L, 2/Z, 5/S, 8/B).
 const CODE_ALPHABET := "CDFGHJKMNPQRTVWX34679"
 const CODE_LENGTH := 6
+## last_error values for a room that has no host, or already has one.
+const NO_ROOM := "no_room"
+const ROOM_TAKEN := "room_taken"
 
 var status := "offline"
 var client: NakamaClient
@@ -75,17 +79,23 @@ func connect_async(display_name: String, game_id: String) -> bool:
 	return true
 
 
-## Creates a relay room and returns its code ("" on failure). The scene
-## tree's multiplayer is already using `LGOnline.bridge.multiplayer_peer`.
+## Creates a relay room and returns its code ("" on failure). The scene's
+## multiplayer is already using `bridge.multiplayer_peer` when this returns.
 func host_room_async(game_id: String) -> String:
-	var code := _new_code()
-	if await _join_named(game_id, code):
-		return code
+	# A fresh code can land on a room someone else is in; try another.
+	for _attempt in 3:
+		var code := _new_code()
+		if await _join_named(game_id, code, true):
+			return code
+		if last_error != ROOM_TAKEN:
+			break
 	return ""
 
 
+## Joins the room with this code. Fails with last_error NO_ROOM when nobody
+## is hosting it.
 func join_room_async(game_id: String, code: String) -> bool:
-	return await _join_named(game_id, normalize_code(code))
+	return await _join_named(game_id, normalize_code(code), false)
 
 
 func leave_room() -> void:
@@ -129,32 +139,60 @@ static func normalize_code(code: String) -> String:
 	return code.strip_edges().to_upper().replace("-", "").replace(" ", "")
 
 
-func _join_named(game_id: String, code: String) -> bool:
+## Whether a code could name a room (the server takes 4-16 letters and digits).
+static func is_valid_code(code: String) -> bool:
+	var c := normalize_code(code)
+	if c.length() < 4 or c.length() > 16:
+		return false
+	for ch in c:
+		if not ((ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9")):
+			return false
+	return true
+
+
+## Joining a named room creates it when it's empty, and the bridge makes
+## whoever arrives first the host, so check we got the role we asked for.
+func _join_named(game_id: String, code: String, as_host: bool) -> bool:
 	if not is_connected_online():
 		return false
 	leave_room()
 	bridge = NakamaMultiplayerBridge.new(socket)
-	# The bridge announces the host the moment it joins, before this returns,
-	# so the scene's multiplayer must already be listening or it never learns
-	# that peer 1 is there (and drops everything the host sends).
-	var mp := get_tree().get_multiplayer()
-	mp.multiplayer_peer = bridge.multiplayer_peer
+	# Attach the peer before joining: a guest's bridge announces the host
+	# (peer 1) the moment it is assigned an id, and a multiplayer API that
+	# attaches later never hears it, so every RPC to the host fails.
+	multiplayer.multiplayer_peer = bridge.multiplayer_peer
+	# Settle inside the bridge's match_joined signal, not on a later frame:
+	# awaiting callers resume right there, before the bridge announces the
+	# host and the guest's hello goes out, so the caller's state is set
+	# before the host can answer (or kick).
 	var result := {"done": false, "ok": false}
-	bridge.match_joined.connect(func():
-		result.ok = true
-		result.done = true, CONNECT_ONE_SHOT)
+	var settle := func(ok: bool):
+		if not result.done:
+			result.done = true
+			result.ok = ok
+			_join_settled.emit()
+	bridge.match_joined.connect(func(): settle.call(true), CONNECT_ONE_SHOT)
 	bridge.match_join_error.connect(func(err):
 		last_error = str(err.message) if err else "join failed"
-		result.done = true, CONNECT_ONE_SHOT)
+		# Detach before the bridge drops its peer, so a refused join isn't
+		# reported as a lost host.
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		settle.call(false), CONNECT_ONE_SHOT)
+	get_tree().create_timer(10.0).timeout.connect(func(): settle.call(false))
 	bridge.join_named_match("%s:%s" % [game_id, code])
-	var waited := 0.0
-	while not result.done and waited < 10.0:
-		await get_tree().create_timer(0.1).timeout
-		waited += 0.1
+	if not result.done:
+		await _join_settled
+	var error := ""
 	if not result.ok:
+		error = "Could not join room %s" % code
+	elif (bridge.multiplayer_peer.get_unique_id() == 1) != as_host:
+		error = ROOM_TAKEN if as_host else NO_ROOM
+	if error != "":
+		if multiplayer.multiplayer_peer == bridge.multiplayer_peer:
+			multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		bridge.leave()
 		bridge = null
-		mp.multiplayer_peer = OfflineMultiplayerPeer.new()
-		return _fail("Could not join room %s" % code)
+		return _fail(error)
 	room_code = code
 	return true
 

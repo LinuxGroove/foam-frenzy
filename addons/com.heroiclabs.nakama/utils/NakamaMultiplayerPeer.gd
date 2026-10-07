@@ -17,8 +17,17 @@ class Packet extends RefCounted:
 		from = p_from
 
 var _incoming_packets := []
+## Peers this side disconnected. A relayed match can't remove anyone, so their
+## packets are dropped here until they join again (LinuxGroove patch).
+var _dropped := {}
 
 signal packet_generated (peer_id: int, buffer: PackedByteArray)
+
+func _init() -> void:
+	peer_connected.connect(_on_peer_connected)
+
+func _on_peer_connected(p_peer: int) -> void:
+	_dropped.erase(p_peer)
 
 func _get_packet_script() -> PackedByteArray:
 	if _incoming_packets.size() == 0:
@@ -82,6 +91,18 @@ func _is_refusing_new_connections() -> bool:
 func _get_connection_status() -> ConnectionStatus:
 	return _connection_status
 
+func _disconnect_peer(p_peer: int, _p_force: bool) -> void:
+	if _dropped.has(p_peer):
+		return
+	_dropped[p_peer] = true
+	_incoming_packets = _incoming_packets.filter(func(p): return p.from != p_peer)
+	peer_disconnected.emit(p_peer)
+
+## The bridge owns the match; NakamaMultiplayerBridge.leave() ends it.
+func _close() -> void:
+	_connection_status = CONNECTION_DISCONNECTED
+	_incoming_packets.clear()
+
 func initialize(p_self_id: int) -> void:
 	if _connection_status != CONNECTION_CONNECTING:
 		return
@@ -93,5 +114,7 @@ func set_connection_status(p_connection_status: int) -> void:
 	_connection_status = p_connection_status
 
 func deliver_packet(p_data: PackedByteArray, p_from_peer_id: int) -> void:
+	if _dropped.has(p_from_peer_id):
+		return
 	var packet = Packet.new(p_data, p_from_peer_id);
 	_incoming_packets.push_back(packet)
