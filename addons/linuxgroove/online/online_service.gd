@@ -95,7 +95,16 @@ func host_room_async(game_id: String) -> String:
 ## Joins the room with this code. Fails with last_error NO_ROOM when nobody
 ## is hosting it.
 func join_room_async(game_id: String, code: String) -> bool:
-	return await _join_named(game_id, normalize_code(code), false)
+	code = normalize_code(code)
+	if not is_connected_online():
+		return false
+	# Ask first: joining a code nobody hosts would open a room for the typo.
+	# Servers without the lookup answer something else; join and let
+	# _join_named catch it.
+	var found = await client.rpc_async(session, "core.room_find", JSON.stringify({"code": code}))
+	if found.is_exception() and str(found.get_exception().message).begins_with("room_not_found"):
+		return _fail(NO_ROOM)
+	return await _join_named(game_id, code, false)
 
 
 func leave_room() -> void:
