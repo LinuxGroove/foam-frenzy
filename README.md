@@ -32,10 +32,12 @@ labs and a hall joined by sliding doors on a timer).
 ## Playing
 
 - **Play with bots**: a match on this device, with bots filling the spots.
-- **Host / Join on this network**: hosts are found automatically, or join with
-  the host's code.
-- **Play online**: through a [LinuxGroove game server](https://github.com/LinuxGroove/game-server).
-- **Practice round**: a short guided warm-up against two coaches.
+- **Local network play**: host, or join a game on the same network. Hosts are
+  found automatically, or join with the host's code.
+- **Play online**: through a [LinuxGroove game server](https://github.com/LinuxGroove/game-server),
+  with leaderboards of wins (weekly and all time) and campers tagged.
+- **How to play**: the tutorial pages, and a short guided practice round
+  against two coaches.
 - **On one screen**: in the lobby, press Start on another controller to add a
   player. Up to four players can share a screen, and couch players can also
   join a LAN or online game together.

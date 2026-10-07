@@ -125,6 +125,45 @@ func rpc_async(rpc_id: String, payload: Dictionary) -> Variant:
 	return JSON.parse_string(res.payload) if res.payload != "" else {}
 
 
+## One leaderboard: its top `limit` records and this player's own, as
+## {"top": [row, ...], "mine": row or null}, where a row is {"rank", "name",
+## "score", "me"}. Null on failure (see last_error). Weekly boards show the
+## current week.
+func leaderboard_async(game_id: String, board: String, limit := 10) -> Variant:
+	if not is_connected_online():
+		return null
+	var res = await client.list_leaderboard_records_async(session, "%s.%s" % [game_id, board], [session.user_id], null, limit)
+	if res.is_exception():
+		last_error = str(res.get_exception().message)
+		return null
+	# Records carry the account's username, which is random for device
+	# logins; players pick a display name, so look those up.
+	var ids := PackedStringArray()
+	for r in res.records + res.owner_records:
+		if not r.owner_id in ids:
+			ids.append(r.owner_id)
+	var names := {}
+	if not ids.is_empty():
+		var users = await client.get_users_async(session, ids)
+		if not users.is_exception():
+			for u in users.users:
+				names[u.id] = u.display_name if u.display_name != "" else u.username
+	var row := func(r) -> Dictionary:
+		return {
+			"rank": int(r.rank),
+			"name": names.get(r.owner_id, r.username),
+			"score": int(r.score),
+			"me": r.owner_id == session.user_id,
+		}
+	var top := []
+	for r in res.records:
+		top.append(row.call(r))
+	var mine = null
+	if not res.owner_records.is_empty():
+		mine = row.call(res.owner_records[0])
+	return {"top": top, "mine": mine}
+
+
 ## The account id behind a multiplayer peer in the current room ("" if unknown).
 func user_id_for_peer(peer_id: int) -> String:
 	if peer_id == 1 and bridge and bridge.multiplayer_peer.get_unique_id() == 1 and session:

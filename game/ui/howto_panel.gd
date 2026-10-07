@@ -1,6 +1,6 @@
 class_name HowToPanel
 extends Control
-## "How to play": a few pages on the goal, darts, moving and blasting, the
+## The tutorial: a few pages on the goal, darts, moving and blasting, the
 ## modes, couch play and the controls. Opened from the title and pause menus,
 ## and by itself before a player's first match if they never opened it.
 

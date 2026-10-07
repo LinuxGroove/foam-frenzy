@@ -33,7 +33,7 @@ func setup(p_game: Game) -> void:
 	_note = LGUi.label("", "HintLabel")
 	_col.add_child(_note)
 	_col.add_child(LGUi.button("Resume", close, 440))
-	_col.add_child(LGUi.button("How to play", _show_howto, 440))
+	_col.add_child(LGUi.button("Tutorial", _show_howto, 440))
 	_col.add_child(LGUi.button("Controls", _toggle_help, 440))
 	_help = VBoxContainer.new()
 	_help.visible = false
@@ -93,7 +93,7 @@ func _toggle_help() -> void:
 		_help.add_child(ActionPrompt.make(pair[0], pair[1], 30))
 
 
-## How to play opens over the menu, which hides so focus stays on the pages.
+## The tutorial opens over the menu, which hides so focus stays on the pages.
 func _show_howto() -> void:
 	_panel.visible = false
 	game.hud.howto.closed.connect(_back_from_howto, CONNECT_ONE_SHOT)

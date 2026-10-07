@@ -84,7 +84,7 @@ func setup(p_game: Game) -> void:
 	game.match_event.connect(_on_event)
 	game.game_over.connect(_on_game_over)
 	_refresh_top()
-	# Someone who never opened "How to play" sees it before their first match.
+	# Someone who never opened the tutorial sees it before their first match.
 	if not practice and not bool(LGSettings.get_value("tutorial", "howto_seen", false)):
 		_first_howto.call_deferred()
 
