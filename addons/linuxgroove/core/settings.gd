@@ -54,6 +54,8 @@ var _overrides := {}
 
 func _init() -> void:
 	register_defaults(BASE_DEFAULTS)
+	# The first autoload, so everything after sees the right version.
+	LGVersion.stamp_from_source()
 
 
 func _ready() -> void:

@@ -90,7 +90,7 @@ func _connect(display_name: String, game_id: String) -> bool:
 		5, NakamaLogger.LOG_LEVEL.ERROR)
 	var vars := {
 		"game": game_id,
-		"version": str(ProjectSettings.get_setting("application/config/version", "0.0.0")),
+		"version": LGVersion.current(),
 		"platform": "ubuntu" if OS.get_name() == "Linux" else OS.get_name().to_lower(),
 	}
 	session = await client.authenticate_device_async(Nakama.get_device_id(), null, true, vars)

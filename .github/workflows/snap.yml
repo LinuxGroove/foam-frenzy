@@ -6,6 +6,9 @@ on:
   pull_request:
   release:
     types: [published]
+  # The release workflow starts this on the new tag (a release it creates
+  # doesn't fire the release event).
+  workflow_dispatch:
 
 jobs:
   snap:
@@ -21,6 +24,14 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Every commit and tag, so tools/version.sh can describe this one.
+          fetch-depth: 0
+      # Releases are tagged vYYYY.WW.MINOR; other builds are that plus the
+      # commits since it and the commit (2026.41.0+3.g1a2b3c4d). The snap
+      # takes its version from project.godot.
+      - name: Stamp the version
+        run: echo "Version $(tools/version.sh --stamp)"
       # Online play uses the LinuxGroove game server's key. It isn't kept in
       # the repository; builds without the secret (pull requests from forks)
       # keep "defaultkey" and can only play on a local server.
@@ -44,7 +55,7 @@ jobs:
           name: foam-frenzy-snap-${{ matrix.arch }}
           path: ${{ steps.build.outputs.snap }}
       - name: Publish to the candidate channel
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.ref_type == 'tag')
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}

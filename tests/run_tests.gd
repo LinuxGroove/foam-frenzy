@@ -45,6 +45,8 @@ func _ready() -> void:
 	await _test_title_menu()
 	printerr("- _test_leaderboard_panel")
 	_test_leaderboard_panel()
+	printerr("- _test_version")
+	_test_version()
 	printerr("- _test_network_check")
 	_test_network_check()
 	printerr("- _test_offline_menus")
@@ -468,6 +470,20 @@ func _test_title_menu() -> void:
 	await get_tree().process_frame
 	title.queue_free()
 	await get_tree().process_frame
+
+
+## Versions: YYYY.WW.MINOR, plus +commits.ghash between releases. A run from
+## source asks tools/version.sh, so it reports the commit it was built from.
+func _test_version() -> void:
+	for v in ["2026.41.0", "2026.41.12", "2026.41.0+3.g1a2b3c4d", "0.1.0"]:
+		check(LGVersion.is_valid(v), "%s is a valid version" % v)
+	for v in ["v2026.41.0", "2026.41", "2026.41.0-3-g1a2b3c4d", "", "2026.41.0+" + "x".repeat(30)]:
+		check(not LGVersion.is_valid(v), "%s is not a valid version" % v)
+	var v := GameConfig.version()
+	check(LGVersion.is_valid(v), "this run's version %s is valid" % v)
+	var out := []
+	OS.execute("sh", [ProjectSettings.globalize_path("res://tools/version.sh")], out)
+	check(not out.is_empty() and str(out[0]).strip_edges() == v, "a run from source reports tools/version.sh's version")
 
 
 ## The network check ignores loopback, link-local and container bridges.
