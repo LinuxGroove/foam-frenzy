@@ -21,6 +21,9 @@ const CODE_LENGTH := 6
 ## last_error values for a room that has no host, or already has one.
 const NO_ROOM := "no_room"
 const ROOM_TAKEN := "room_taken"
+## last_error values when quick match ends without a room.
+const NO_MATCH := "no_match"
+const CANCELLED := "cancelled"
 
 var status := "offline"
 var client: NakamaClient
@@ -32,6 +35,8 @@ var last_error := ""
 ## A sign-in is under way; later callers wait for it instead of starting
 ## a second one.
 var _connecting := false
+## Ends the running quick-match search (see cancel_matchmaking).
+var _cancel_search := Callable()
 
 
 func _ready() -> void:
@@ -119,6 +124,65 @@ func join_room_async(game_id: String, code: String) -> bool:
 	if found.is_exception() and str(found.get_exception().message).begins_with("room_not_found"):
 		return _fail(NO_ROOM)
 	return await _join_named(game_id, code, false)
+
+
+## Quick match: waits up to `timeout` seconds for other players of this game
+## who are also looking, then joins them in a room. Returns "host" or "guest"
+## (the bridge picks the host), or "" with last_error NO_MATCH when nobody
+## turned up in time, CANCELLED after cancel_matchmaking(), or a server error.
+## The scene's multiplayer is using the room's peer when it returns a role.
+func find_match_async(min_players: int, max_players: int, timeout := 60.0) -> String:
+	if not is_connected_online():
+		return ""
+	leave_room()
+	bridge = NakamaMultiplayerBridge.new(socket)
+	# Attach first and settle inside match_joined, as in _join_named.
+	multiplayer.multiplayer_peer = bridge.multiplayer_peer
+	var result := {"done": false, "ok": false}
+	var settle := func(ok: bool, error: String):
+		if not result.done:
+			result.done = true
+			result.ok = ok
+			if error != "":
+				last_error = error
+			_join_settled.emit()
+	bridge.match_joined.connect(func(): settle.call(true, ""), CONNECT_ONE_SHOT)
+	bridge.match_join_error.connect(func(err):
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		settle.call(false, str(err.message) if err else "join failed"), CONNECT_ONE_SHOT)
+	_cancel_search = func(): settle.call(false, CANCELLED)
+	get_tree().create_timer(timeout).timeout.connect(func(): settle.call(false, NO_MATCH))
+	# The server limits the ticket to this game's players.
+	var ticket = await socket.add_matchmaker_async("*", min_players, max_players)
+	if ticket.is_exception():
+		settle.call(false, str(ticket.get_exception().message))
+	elif result.done:
+		await socket.remove_matchmaker_async(ticket.ticket)
+	else:
+		bridge.start_matchmaking(ticket)
+	if not result.done:
+		await _join_settled
+	_cancel_search = Callable()
+	if not result.ok:
+		if bridge:
+			if multiplayer.multiplayer_peer == bridge.multiplayer_peer:
+				multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+			# Also removes the ticket, or leaves a room joined too late.
+			bridge.leave()
+			bridge = null
+		if last_error in [NO_MATCH, CANCELLED]:
+			_set_status("online")
+		else:
+			_fail(last_error)
+		return ""
+	room_code = ""
+	return "host" if bridge.multiplayer_peer.get_unique_id() == 1 else "guest"
+
+
+## Stops a find_match_async() that's still looking.
+func cancel_matchmaking() -> void:
+	if _cancel_search.is_valid():
+		_cancel_search.call()
 
 
 func leave_room() -> void:

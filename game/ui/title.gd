@@ -13,6 +13,11 @@ var _col: VBoxContainer
 var _status: Label
 var _hosts_box: VBoxContainer
 var _about_scroll: ScrollContainer
+## Quick match: the search timer's label and when the search began (msec).
+var _search_label: Label
+var _search_since := 0
+## The last status message, kept so it survives a screen change.
+var _last_status := ""
 ## Set once a button has started leaving this screen (or a join is under
 ## way), so a double press can't start a second session or scene change.
 var _leaving := false
@@ -51,6 +56,7 @@ func _ready() -> void:
 
 
 func _on_status(text: String) -> void:
+	_last_status = text
 	if _status and is_instance_valid(_status):
 		_status.text = text
 
@@ -63,6 +69,14 @@ func _clear() -> void:
 		c.queue_free()
 	_hosts_box = null
 	_about_scroll = null
+	_search_label = null
+	_search_since = 0
+
+
+func _process(_delta: float) -> void:
+	if _search_label and is_instance_valid(_search_label) and _search_since > 0:
+		var secs := (Time.get_ticks_msec() - _search_since) / 1000
+		_search_label.text = "Looking for players... %d:%02d" % [secs / 60, secs % 60]
 
 
 func _add_title() -> void:
@@ -324,6 +338,7 @@ func _show_online() -> void:
 	var info2 := LGUi.label("Host a room and share its code, or type a friend's code to join. Couch players come along.", "HintLabel")
 	info2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(info2)
+	_col.add_child(LGUi.button("Quick match", _quick_match))
 	_col.add_child(LGUi.button("Host an online room", _host_online))
 	var code := LineEdit.new()
 	code.placeholder_text = "Room code"
@@ -336,6 +351,43 @@ func _show_online() -> void:
 	_col.add_child(LGUi.button("Back", _show_main))
 	_add_status()
 	LGUi.focus_first(_col)
+
+
+## Looks for other players; with nobody around after a minute, it's bots.
+func _quick_match() -> void:
+	if not _claim():
+		return
+	_clear()
+	_col.add_child(LGUi.label("Quick match", "HeaderMedium"))
+	_search_label = LGUi.label("Connecting...")
+	_search_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_col.add_child(_search_label)
+	var hint := LGUi.label("If nobody turns up within a minute, you'll play with bots instead.", "HintLabel")
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_col.add_child(hint)
+	_col.add_child(LGUi.button("Cancel", Session.cancel_quick_match))
+	LGUi.focus_first(_col)
+	_search_since = Time.get_ticks_msec()
+	var where: String = await Session.quick_match()
+	_search_since = 0
+	match where:
+		"lobby":
+			LGScenes.change_scene(LOBBY)
+			return
+		"joining":
+			if _search_label and is_instance_valid(_search_label):
+				_search_label.text = "Found a game. Joining..."
+			var result: Array = await _first_of_joined_or_left()
+			if result[0] == "joined":
+				LGScenes.change_scene(LOBBY)
+				return
+			_last_status = str(result[1]) if str(result[1]) != "" else "Couldn't join."
+	_leaving = false
+	var message := _last_status
+	_show_online()
+	if _status:
+		_status.text = message
 
 
 func _show_leaderboards() -> void:

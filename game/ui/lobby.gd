@@ -293,10 +293,28 @@ func _refresh() -> void:
 	_start.visible = host
 	_start.disabled = not Session.can_start()
 	var blocker := Session.start_blocker()
-	if host and blocker != "":
+	if Session.quick and Session.quick_seconds_left() > 0.0:
+		if Session.mode == Session.Mode.SOLO:
+			_status.text = "Nobody else was looking for a game, so it's you and some bots."
+		elif host and blocker != "":
+			_status.text = "Bots fill any empty spots when the countdown ends."
+		elif not host:
+			_status.text = "The match starts by itself when the countdown ends."
+	elif host and blocker != "":
 		_status.text = blocker
 	elif not host:
 		_status.text = "Waiting for the host to start the match."
+	_refresh_code()
+	_preview.set_color(GameConfig.slot_color(_my_slot(0)))
+	for i in _cards:
+		_cards[i].set_color(GameConfig.slot_color(_my_slot(i)))
+
+
+func _refresh_code() -> void:
+	if Session.quick:
+		var left := ceili(Session.quick_seconds_left())
+		_code.text = "Quick match: starts in %d s" % left if left > 0 else "Quick match"
+		return
 	match Session.mode:
 		Session.Mode.LAN_HOST:
 			_code.text = "Join code: %s" % JoinCode.pretty(Session.join_code) if Session.join_code != "" else "No network found"
@@ -304,9 +322,6 @@ func _refresh() -> void:
 			_code.text = "Room code: %s" % Session.join_code
 		_:
 			_code.text = ""
-	_preview.set_color(GameConfig.slot_color(_my_slot(0)))
-	for i in _cards:
-		_cards[i].set_color(GameConfig.slot_color(_my_slot(i)))
 
 
 # --- Couch seats ---------------------------------------------------------
@@ -333,6 +348,9 @@ func _refresh_seats() -> void:
 
 
 func _process(delta: float) -> void:
+	if Session.quick:
+		# Keeps the quick-match countdown ticking.
+		_refresh_code()
 	var menu_pad := LGInput.menu_pad()
 	for pad in Input.get_connected_joypads():
 		var state: Dictionary = _pads.get(pad, {"buttons": {}, "repeat": 0.0})

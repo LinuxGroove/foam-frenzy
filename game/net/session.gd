@@ -24,6 +24,10 @@ signal peer_loaded(id: int)
 enum Mode { NONE, SOLO, LAN_HOST, LAN_CLIENT, ONLINE_HOST, ONLINE_CLIENT }
 
 const HELLO_TIMEOUT := 6.0
+## Quick match looks this long for other players before playing with bots.
+const QUICK_SEARCH_SECONDS := 60.0
+## Then the first match starts by itself after this long in the lobby.
+const QUICK_COUNTDOWN := 15.0
 const SEATS_PER_PEER := 4
 
 var mode := Mode.NONE
@@ -39,6 +43,13 @@ var loaded_peers := {}
 var matches_played := 0
 ## The next match is a practice round (see MatchHost.practice).
 var practice := false
+## This lobby came from quick match: bots get made-up names, and a countdown
+## starts the first match so nobody waits on a stranger.
+var quick := false
+## When the quick-match countdown ends (ticks msec), or 0 when none is running.
+var _quick_start_msec := 0
+## Host: how many players quick match fills up to with bots.
+var _quick_target := 0
 ## This device's players: [{"pad", "name", "look", "blaster"}]. Seat 0 is the
 ## keyboard player (pad LGSeat.ANY_FREE_PAD); the rest each own a controller.
 var local_seats: Array = []
@@ -330,6 +341,87 @@ func join_online(code: String) -> bool:
 
 
 ## Ends the session. Couch players stay seated for the next one.
+## Quick match: finds other players looking for a game, or plays with bots
+## if nobody turns up in time. Returns "lobby" (go there now: you host, or
+## it's you and bots), "joining" (wait for `joined` or `left`) or "" when it
+## was cancelled or failed (see `status`).
+func quick_match() -> String:
+	leave()
+	status.emit("Connecting to the game server...")
+	if not await LGOnline.connect_async(player_name(), GameConfig.GAME_ID):
+		status.emit(LGOnline.last_error)
+		return ""
+	quick = true
+	status.emit("Looking for players...")
+	var role: String = await LGOnline.find_match_async(2, GameConfig.MAX_PLAYERS, QUICK_SEARCH_SECONDS)
+	match role:
+		"host":
+			mode = Mode.ONLINE_HOST
+			join_code = ""
+			_apply_seats(1, _seat_payload())
+			_begin_quick_countdown()
+			joined.emit()
+			roster_changed.emit()
+			return "lobby"
+		"guest":
+			# The hello went out while joining; the roster and countdown follow.
+			mode = Mode.ONLINE_CLIENT
+			join_code = ""
+			return "joining"
+	quick = false
+	if LGOnline.last_error == LGOnline.NO_MATCH:
+		start_quick_solo()
+		status.emit("Nobody else is looking right now, so it's you and some bots.")
+		return "lobby"
+	if LGOnline.last_error != LGOnline.CANCELLED:
+		status.emit("Couldn't find a game: %s" % LGOnline.last_error)
+	return ""
+
+
+func cancel_quick_match() -> void:
+	LGOnline.cancel_matchmaking()
+
+
+## Quick match with nobody else around: this device and a random number of bots.
+func start_quick_solo() -> void:
+	start_solo(0)
+	quick = true
+	_begin_quick_countdown()
+	_fill_quick_bots()
+
+
+## Seconds until a quick-match game starts by itself, or 0.
+func quick_seconds_left() -> float:
+	if _quick_start_msec == 0:
+		return 0.0
+	return maxf(0.0, (_quick_start_msec - Time.get_ticks_msec()) / 1000.0)
+
+
+func _begin_quick_countdown() -> void:
+	_quick_target = randi_range(GameConfig.QUICK_MATCH_SIZE.x, GameConfig.QUICK_MATCH_SIZE.y)
+	_quick_start_msec = Time.get_ticks_msec() + int(QUICK_COUNTDOWN * 1000.0)
+
+
+## Host: tops the arena up with bots to the quick-match size.
+func _fill_quick_bots() -> void:
+	while players.size() < mini(_quick_target, GameConfig.MAX_PLAYERS):
+		var before := players.size()
+		add_bot()
+		if players.size() == before:
+			break
+
+
+func _process(_delta: float) -> void:
+	if _quick_start_msec != 0 and is_host() and not in_match and quick_seconds_left() <= 0.0:
+		_quick_start_msec = 0
+		if LGScenes.is_busy():
+			# Still arriving in the lobby; try again next frame.
+			_quick_start_msec = Time.get_ticks_msec()
+			return
+		_fill_quick_bots()
+		start_match()
+
+
 func leave(reason := "") -> void:
 	var was := mode
 	get_tree().paused = false
@@ -348,6 +440,9 @@ func leave(reason := "") -> void:
 	loaded_peers.clear()
 	matches_played = 0
 	practice = false
+	quick = false
+	_quick_start_msec = 0
+	_quick_target = 0
 	_pending_hello.clear()
 	if was != Mode.NONE:
 		left.emit(reason)
@@ -367,10 +462,13 @@ func add_bot() -> void:
 		used_names.append(p.name)
 		used_looks.append(p.look)
 	var name := "Bot"
-	for n in GameConfig.BOT_NAMES:
-		if not n in used_names:
-			name = n
-			break
+	if quick:
+		name = LGNameMaker.make(used_names)
+	else:
+		for n in GameConfig.BOT_NAMES:
+			if not n in used_names:
+				name = n
+				break
 	players[id] = {
 		"name": name, "look": _free_look(used_looks), "blaster": randi() % Rules.BLASTERS.size(),
 		"slot": _free_slot(), "bot": true, "peer": 0, "seat": 0,
@@ -590,6 +688,8 @@ func _c_hello(version: String, protocol: int, seats: Array) -> void:
 		_kick(id, "This game is full.")
 		return
 	_apply_seats(id, seats)
+	if _quick_start_msec != 0:
+		_h_countdown.rpc_id(id, quick_seconds_left())
 	var names := []
 	for aid in players:
 		if int(players[aid].peer) == id and not players[aid].bot:
@@ -626,6 +726,14 @@ func _h_roster(p_players: Dictionary, p_settings: Dictionary, p_code: String) ->
 	settings_changed.emit()
 
 
+## Quick match: the first match starts by itself in this many seconds.
+@rpc("authority", "reliable")
+func _h_countdown(seconds: float) -> void:
+	quick = true
+	_quick_start_msec = Time.get_ticks_msec() + int(seconds * 1000.0)
+	roster_changed.emit()
+
+
 @rpc("authority", "reliable")
 func _h_kicked(reason: String) -> void:
 	leave(reason)
@@ -634,6 +742,7 @@ func _h_kicked(reason: String) -> void:
 @rpc("authority", "reliable")
 func _h_start_match(config: Dictionary) -> void:
 	in_match = true
+	_quick_start_msec = 0
 	match_config = config
 	LGInput.filter_claimed_pads = false
 	LGScenes.change_scene("res://game/game.tscn", func(node): node.set("config", config))

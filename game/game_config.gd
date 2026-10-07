@@ -5,9 +5,11 @@ extends RefCounted
 const GAME_ID := "foam-frenzy"
 ## Bump PROTOCOL whenever network messages change; mismatched builds are told
 ## to update instead of desyncing.
-const PROTOCOL := 1
+const PROTOCOL := 2
 const MAX_PLAYERS := 8
 const MIN_PLAYERS := 2
+## Quick match fills the arena with bots up to a random size in this range.
+const QUICK_MATCH_SIZE := Vector2i(4, 8)
 ## Players on one device (one keyboard and controllers).
 const MAX_LOCAL := 4
 
