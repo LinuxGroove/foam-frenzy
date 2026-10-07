@@ -21,6 +21,22 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+      # Online play uses the LinuxGroove game server's key. It isn't kept in
+      # the repository; builds without the secret (pull requests from forks)
+      # keep "defaultkey" and can only play on a local server.
+      - name: Set the game server key
+        env:
+          GAME_SERVER_KEY: ${{ secrets.GAME_SERVER_KEY }}
+        run: |
+          if [ -z "$GAME_SERVER_KEY" ]; then
+            echo "::warning::GAME_SERVER_KEY is not set; this build can't play on the public game server"
+            exit 0
+          fi
+          case "$GAME_SERVER_KEY" in
+            *[!A-Za-z0-9_-]*) echo "::error::GAME_SERVER_KEY may only contain letters, digits, '-' and '_'"; exit 1 ;;
+          esac
+          sed -i "s/^const SERVER_KEY := \".*\"$/const SERVER_KEY := \"$GAME_SERVER_KEY\"/" game/net/online_server.gd
+          grep -q "^const SERVER_KEY := \"$GAME_SERVER_KEY\"$" game/net/online_server.gd
       - uses: snapcore/action-build@v1
         id: build
       - uses: actions/upload-artifact@v4

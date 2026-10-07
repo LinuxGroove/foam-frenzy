@@ -28,6 +28,13 @@ const TEAM_COLORS := [Color("ff5a4f"), Color("3e8bff")]
 const TEAM_NAMES := ["Red", "Blue"]
 
 const SETTING_DEFAULTS := {
+	"online": {
+		"enabled": true,
+		"host": OnlineServer.HOST,
+		"port": OnlineServer.PORT,
+		"scheme": OnlineServer.SCHEME,
+		"server_key": OnlineServer.SERVER_KEY,
+	},
 	"tutorial": {
 		"welcomed": false,
 		"howto_seen": false,
