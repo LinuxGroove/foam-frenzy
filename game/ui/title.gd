@@ -18,6 +18,12 @@ var _search_label: Label
 var _search_since := 0
 ## The last status message, kept so it survives a screen change.
 var _last_status := ""
+## Controls on this screen that need a network, and the line saying why
+## they're off while there's none (see _watch_network).
+var _net_controls: Array = []
+var _net_label: Label
+var _net_up := true
+var _net_check_at := 0
 ## Set once a button has started leaving this screen (or a join is under
 ## way), so a double press can't start a second session or scene change.
 var _leaving := false
@@ -71,9 +77,13 @@ func _clear() -> void:
 	_about_scroll = null
 	_search_label = null
 	_search_since = 0
+	_net_controls = []
+	_net_label = null
 
 
 func _process(_delta: float) -> void:
+	if not _net_controls.is_empty() and Time.get_ticks_msec() >= _net_check_at:
+		_apply_network(false)
 	if _search_label and is_instance_valid(_search_label) and _search_since > 0:
 		var secs := (Time.get_ticks_msec() - _search_since) / 1000
 		_search_label.text = "Looking for players... %d:%02d" % [secs / 60, secs % 60]
@@ -219,11 +229,45 @@ func _show_local() -> void:
 	_clear()
 	_col.add_child(LGUi.label("Local network play", "HeaderMedium"))
 	_col.add_child(LGUi.label("Play with others on the same Wi-Fi or wired network.", "HintLabel"))
-	_col.add_child(LGUi.button("Host on this network", _host_lan))
-	_col.add_child(LGUi.button("Join on this network", _show_join))
+	var host := LGUi.button("Host on this network", _host_lan)
+	var join := LGUi.button("Join on this network", _show_join)
+	_col.add_child(host)
+	_col.add_child(join)
 	_col.add_child(LGUi.button("Back", _show_main))
 	_add_status()
+	_watch_network([host, join], "You're not connected to a network. Connect to Wi-Fi or plug in a network cable to play with others nearby.")
 	LGUi.focus_first(_col)
+
+
+## Turns `controls` off, with `offline_text` under the screen's header, while
+## this device has no network, and back on when it has one again.
+func _watch_network(controls: Array, offline_text: String) -> void:
+	_net_controls = controls
+	_net_label = LGUi.label(offline_text, "HintLabel")
+	_net_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_net_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_net_label.add_theme_color_override("font_color", TITLE_COLOR)
+	_col.add_child(_net_label)
+	_col.move_child(_net_label, 1)
+	_apply_network(true)
+
+
+func _apply_network(force: bool) -> void:
+	_net_check_at = Time.get_ticks_msec() + 1000
+	var up := LGNetwork.is_up()
+	if up == _net_up and not force:
+		return
+	_net_up = up
+	_net_label.visible = not up
+	for c in _net_controls:
+		if c is BaseButton:
+			c.disabled = not up
+		elif c is LineEdit:
+			c.editable = up
+		c.focus_mode = Control.FOCUS_ALL if up else Control.FOCUS_NONE
+	var focused := get_viewport().gui_get_focus_owner()
+	if not force and (focused == null or focused in _net_controls or up):
+		LGUi.focus_first(_col)
 
 
 func _host_lan() -> void:
@@ -338,18 +382,23 @@ func _show_online() -> void:
 	var info2 := LGUi.label("Host a room and share its code, or type a friend's code to join. Couch players come along.", "HintLabel")
 	info2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(info2)
-	_col.add_child(LGUi.button("Quick match", _quick_match))
-	_col.add_child(LGUi.button("Host an online room", _host_online))
+	var quick := LGUi.button("Quick match", _quick_match)
+	var host := LGUi.button("Host an online room", _host_online)
+	_col.add_child(quick)
+	_col.add_child(host)
 	var code := LineEdit.new()
 	code.placeholder_text = "Room code"
 	code.max_length = 8
 	code.custom_minimum_size = Vector2(520, 56)
 	LGUi.gamepad_text_entry(code, true)
 	_col.add_child(code)
-	_col.add_child(LGUi.button("Join with code", _join_online.bind(code)))
-	_col.add_child(LGUi.button("Leaderboards", _show_leaderboards))
+	var join := LGUi.button("Join with code", _join_online.bind(code))
+	var boards := LGUi.button("Leaderboards", _show_leaderboards)
+	_col.add_child(join)
+	_col.add_child(boards)
 	_col.add_child(LGUi.button("Back", _show_main))
 	_add_status()
+	_watch_network([quick, host, code, join, boards], LGNetwork.OFFLINE_TEXT)
 	LGUi.focus_first(_col)
 
 

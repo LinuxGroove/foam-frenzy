@@ -45,6 +45,10 @@ func _ready() -> void:
 	await _test_title_menu()
 	printerr("- _test_leaderboard_panel")
 	_test_leaderboard_panel()
+	printerr("- _test_network_check")
+	_test_network_check()
+	printerr("- _test_offline_menus")
+	await _test_offline_menus()
 	printerr("- _test_name_maker")
 	_test_name_maker()
 	printerr("- _test_quick_match_bots")
@@ -461,6 +465,50 @@ func _test_title_menu() -> void:
 	check("Leaderboards" in _button_texts(title), "play online offers leaderboards")
 	LGSettings.set_value("online", "enabled", online_was, false)
 	# Let the menu's deferred focus land before freeing it.
+	await get_tree().process_frame
+	title.queue_free()
+	await get_tree().process_frame
+
+
+## The network check ignores loopback, link-local and container bridges.
+func _test_network_check() -> void:
+	var iface := func(name: String, addrs: Array) -> Dictionary: return {"name": name, "addresses": addrs}
+	check(not LGNetwork.is_up_in([]), "no interfaces: offline")
+	check(not LGNetwork.is_up_in([iface.call("lo", ["127.0.0.1", "::1"])]), "loopback only: offline")
+	check(not LGNetwork.is_up_in([iface.call("wlan0", ["169.254.3.4", "fe80::1"])]), "link-local only: offline")
+	check(not LGNetwork.is_up_in([iface.call("lxdbr0", ["10.152.39.1"]), iface.call("docker0", ["172.17.0.1"])]), "container bridges only: offline")
+	check(LGNetwork.is_up_in([iface.call("lo", ["127.0.0.1"]), iface.call("wlp1s0", ["192.168.1.220"])]), "Wi-Fi address: online")
+	check(LGNetwork.is_up_in([iface.call("enp3s0", ["2001:db8::5"])]), "global IPv6 address: online")
+
+
+## With no network the online and local screens say so and turn their
+## buttons off, and come back on by themselves; sign-in doesn't even try.
+func _test_offline_menus() -> void:
+	LGNetwork.forced = false
+	var t0 := Time.get_ticks_msec()
+	var ok: bool = await LGOnline.connect_async("Tester", GameConfig.GAME_ID)
+	check(not ok and LGOnline.last_error == LGNetwork.OFFLINE_TEXT, "sign-in refuses without a network")
+	check(Time.get_ticks_msec() - t0 < 200, "and says so straight away")
+	var online_was: bool = LGSettings.get_value("online", "enabled")
+	LGSettings.set_value("online", "enabled", true, false)
+	var title: Node = load("res://game/ui/title.tscn").instantiate()
+	add_child(title)
+	await get_tree().process_frame
+	for screen in ["_show_online", "_show_local"]:
+		title.call(screen)
+		await get_tree().process_frame
+		var buttons: Array = title._net_controls.filter(func(c): return c is BaseButton)
+		check(buttons.size() >= 2 and buttons.all(func(b): return b.disabled), "%s: network buttons are off offline" % screen)
+		check(title._net_label.visible and title._net_label.text.contains("not connected"), "%s: says there's no network" % screen)
+		var back: Button = title._col.get_children().filter(func(c): return c is Button and c.text == "Back")[0]
+		check(not back.disabled, "%s: Back still works" % screen)
+		LGNetwork.forced = true
+		title._apply_network(false)
+		check(buttons.all(func(b): return not b.disabled) and not title._net_label.visible, "%s: buttons come back with the network" % screen)
+		LGNetwork.forced = false
+		await get_tree().process_frame
+	LGNetwork.forced = null
+	LGSettings.set_value("online", "enabled", online_was, false)
 	await get_tree().process_frame
 	title.queue_free()
 	await get_tree().process_frame

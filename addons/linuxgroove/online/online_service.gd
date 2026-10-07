@@ -24,6 +24,14 @@ const ROOM_TAKEN := "room_taken"
 ## last_error values when quick match ends without a room.
 const NO_MATCH := "no_match"
 const CANCELLED := "cancelled"
+## Shown when the device is on a network but the server can't be reached.
+const UNREACHABLE_TEXT := "Can't reach the game server. Check your internet connection and try again."
+## HTTPRequest results that mean the request never got an answer.
+const TRANSPORT_FAILURES := [
+	HTTPRequest.RESULT_CANT_CONNECT, HTTPRequest.RESULT_CANT_RESOLVE,
+	HTTPRequest.RESULT_CONNECTION_ERROR, HTTPRequest.RESULT_TLS_HANDSHAKE_ERROR,
+	HTTPRequest.RESULT_NO_RESPONSE, HTTPRequest.RESULT_TIMEOUT, HTTPRequest.RESULT_REQUEST_FAILED,
+]
 
 var status := "offline"
 var client: NakamaClient
@@ -57,6 +65,11 @@ func is_connected_online() -> bool:
 func connect_async(display_name: String, game_id: String) -> bool:
 	if is_connected_online():
 		return true
+	# Don't try without a network; say why instead of failing obscurely.
+	if not LGNetwork.is_up():
+		last_error = LGNetwork.OFFLINE_TEXT
+		_set_status("offline")
+		return false
 	if _connecting:
 		return await _connect_settled
 	_connecting = true
@@ -82,9 +95,12 @@ func _connect(display_name: String, game_id: String) -> bool:
 	}
 	session = await client.authenticate_device_async(Nakama.get_device_id(), null, true, vars)
 	if session.is_exception():
-		var msg: String = session.get_exception().message
+		var ex: NakamaException = session.get_exception()
+		var msg: String = ex.message
 		if msg.begins_with("update_required"):
 			return _fail("The game server needs a newer version of this game. Please update.")
+		if ex.status_code in TRANSPORT_FAILURES:
+			return _fail(UNREACHABLE_TEXT)
 		return _fail("Could not sign in: %s" % msg)
 	if display_name != "":
 		# Best effort; a taken or invalid name shouldn't block play.
@@ -92,7 +108,9 @@ func _connect(display_name: String, game_id: String) -> bool:
 	socket = Nakama.create_socket_from(client)
 	var res: NakamaAsyncResult = await socket.connect_async(session)
 	if res.is_exception():
-		return _fail("Could not open the realtime connection: %s" % res.get_exception().message)
+		if not LGNetwork.is_up():
+			return _fail(LGNetwork.OFFLINE_TEXT)
+		return _fail(UNREACHABLE_TEXT)
 	socket.closed.connect(_on_socket_closed)
 	_set_status("online")
 	return true

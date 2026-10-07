@@ -92,7 +92,8 @@ func _load() -> void:
 	_mine.text = ""
 	if not await LGOnline.connect_async(_display_name, _game_id):
 		if id == _load_id:
-			_show_message("Couldn't reach the game server.")
+			# No network, or the server can't be reached: LGOnline says which.
+			_show_message(LGOnline.last_error)
 		return
 	var res = await LGOnline.leaderboard_async(_game_id, str(_picker.value()), ROWS)
 	if id != _load_id or not is_inside_tree():
