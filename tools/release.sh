@@ -59,6 +59,15 @@ sudo snap install $snap --candidate     # new to the game
 sudo snap refresh $snap --candidate     # already have it
 \`\`\`
 
+### Windows and macOS
+
+Download \`$snap-${tag#v}-windows-x86_64.zip\` or \`$snap-${tag#v}-macos.zip\` from the assets below (they're added a few minutes after the release is published), unzip it and run the game. These builds aren't signed by Microsoft or Apple, so the first time:
+
+- **Windows:** if SmartScreen says it protected your PC, choose **More info**, then **Run anyway**.
+- **macOS:** open the app once, then go to **System Settings > Privacy & Security** and choose **Open Anyway**.
+
+Windows and macOS builds don't update themselves; come back here for new releases.
+
 EOF
 	if [ -n "$highlights" ]; then
 		printf '%s\n\n' "$highlights"
@@ -87,7 +96,7 @@ EOF
 		echo "**All changes:** [$prev...$tag]($url/compare/$prev...$tag)"
 		echo
 	fi
-	echo "The source code archives below are for building $title yourself. To play, [get the snap](https://snapcraft.io/$snap)."
+	echo "The source code archives below are for building $title yourself. To play on Linux, [get the snap](https://snapcraft.io/$snap)."
 }
 
 case "${1:-}" in

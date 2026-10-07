@@ -6,7 +6,8 @@ name: Release
 # Sunday to Saturday (see tools/release.sh). Then it
 # publishes a GitHub release whose notes point people at the Snap Store and
 # list what changed, and starts the snap workflow on the tag, which publishes
-# that build to the candidate channel.
+# that build to the candidate channel, and the Windows and macOS workflow,
+# which attaches those zips to the release.
 on:
   workflow_dispatch:
     inputs:
@@ -76,6 +77,10 @@ jobs:
             --title "$title" \
             --notes-file notes.md
       # A release made with this workflow's token doesn't start other
-      # workflows, so start the snap build on the new tag directly.
-      - name: Build and publish the snap
-        run: gh workflow run snap.yml --ref "${{ steps.version.outputs.tag }}"
+      # workflows, so start the builds on the new tag directly: the snap
+      # (published to candidate) and the Windows and macOS zips (attached
+      # to this release).
+      - name: Build and publish the snap, Windows and macOS
+        run: |
+          gh workflow run snap.yml --ref "${{ steps.version.outputs.tag }}"
+          gh workflow run desktop.yml --ref "${{ steps.version.outputs.tag }}"

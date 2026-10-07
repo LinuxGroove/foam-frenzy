@@ -1,0 +1,107 @@
+name: Windows and macOS
+
+# Exports the game for Windows (x86_64) and macOS (universal, ad-hoc signed)
+# on Linux. Pushes to main keep the zips as artifacts for 5 days; releases
+# also attach them to the GitHub release. Linux players get the snap.
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  # The release workflow starts this on the new tag (a release it creates
+  # doesn't fire the release event).
+  workflow_dispatch:
+
+permissions:
+  contents: write  # attach the zips to a release
+
+env:
+  # Keep in step with snap/snapcraft.yaml.
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  export:
+    name: Export for Windows and macOS
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Every commit and tag, so tools/version.sh can describe this one.
+          fetch-depth: 0
+      - name: Stamp the version
+        id: version
+        run: echo "version=$(tools/version.sh --stamp)" >> "$GITHUB_OUTPUT"
+      # Online play uses the LinuxGroove game server's key. It isn't kept in
+      # the repository; builds without the secret keep "defaultkey" and can
+      # only play on a local server.
+      - name: Set the game server key
+        env:
+          GAME_SERVER_KEY: ${{ secrets.GAME_SERVER_KEY }}
+        run: |
+          if [ -z "$GAME_SERVER_KEY" ]; then
+            echo "::warning::GAME_SERVER_KEY is not set; this build can't play on the public game server"
+            exit 0
+          fi
+          case "$GAME_SERVER_KEY" in
+            *[!A-Za-z0-9_-]*) echo "::error::GAME_SERVER_KEY may only contain letters, digits, '-' and '_'"; exit 1 ;;
+          esac
+          sed -i "s/^const SERVER_KEY := \".*\"$/const SERVER_KEY := \"$GAME_SERVER_KEY\"/" game/net/online_server.gd
+          grep -q "^const SERVER_KEY := \"$GAME_SERVER_KEY\"$" game/net/online_server.gd
+      # The templates come in a 1.3 GB archive; keep just the two we need.
+      - name: Cache the export templates
+        id: templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
+          key: godot-templates-${{ env.GODOT_VERSION }}-windows-macos
+      - name: Get Godot
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          echo "GODOT=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+          if [ "${{ steps.templates.outputs.cache-hit }}" != "true" ]; then
+            dir="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+            mkdir -p "$dir"
+            curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+            unzip -o -q -j templates.tpz templates/windows_release_x86_64.exe templates/macos.zip templates/version.txt -d "$dir"
+            rm templates.tpz
+          fi
+      - name: Export
+        run: |
+          slug=$(sed -n 's/^name: *//p' snap/snapcraft.yaml | head -1)
+          version=${{ steps.version.outputs.version }}
+          # macOS wants plain numbers in the app's version, so it gets the
+          # release part (2026.41.0) without the +build metadata.
+          sed -i -e "s/^application\/short_version=\".*\"$/application\/short_version=\"${version%%+*}\"/" \
+                 -e "s/^application\/version=\".*\"$/application\/version=\"${version%%+*}\"/" export_presets.cfg
+          "$GODOT" --headless --path . --import
+          mkdir -p build/windows build/macos dist
+          "$GODOT" --headless --path . --export-release "Windows Desktop" "build/windows/$slug.exe"
+          "$GODOT" --headless --path . --export-release "macOS" "build/macos/$slug.zip"
+          test -s "build/windows/$slug.exe" && test -s "build/macos/$slug.zip"
+          # Each zip carries the license and credits next to the game.
+          win="dist/$slug-$version-windows-x86_64.zip"
+          (cd build/windows && cp ../../LICENSE ../../CREDITS.md . && zip -q -9 "../../$win" "$slug.exe" LICENSE CREDITS.md)
+          mac="dist/$slug-$version-macos.zip"
+          cp "build/macos/$slug.zip" "$mac"
+          zip -q -j "$mac" LICENSE CREDITS.md
+          unzip -l "$win"
+          unzip -l "$mac" | tail -3
+          echo "SLUG=$slug" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SLUG }}-windows-x86_64
+          path: dist/*-windows-x86_64.zip
+          retention-days: 5
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SLUG }}-macos
+          path: dist/*-macos.zip
+          retention-days: 5
+      - name: Attach to the release
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.ref_type == 'tag')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+        run: gh release upload "$TAG" dist/*.zip --clobber
