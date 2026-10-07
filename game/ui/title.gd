@@ -347,10 +347,31 @@ func _show_leaderboards() -> void:
 		["wins_weekly", "Wins this week"],
 		["wins", "Wins, all time"],
 		["tags", "Campers tagged"],
-	])
+	], record_text)
 	_col.add_child(panel)
 	_col.add_child(LGUi.button("Back", _show_online))
 	LGUi.focus_first(_col)
+
+
+## The player's online record, from the stats the server keeps per match.
+static func record_text(stats: Dictionary) -> String:
+	var matches := int(stats.get("matches", 0))
+	if matches == 0:
+		return "No online matches yet. Finish one to start your record."
+	var parts := [
+		_count(matches, "match", "matches"),
+		_count(int(stats.get("wins", 0)), "win", "wins"),
+		_count(int(stats.get("tags", 0)), "tag", "tags"),
+		_count(int(stats.get("outs", 0)), "out", "outs"),
+	]
+	var captures := int(stats.get("captures", 0))
+	if captures > 0:
+		parts.append(_count(captures, "flag capture", "flag captures"))
+	return "Your online record: %s." % ", ".join(parts)
+
+
+static func _count(n: int, one: String, many: String) -> String:
+	return "%d %s" % [n, one if n == 1 else many]
 
 
 func _host_online() -> void:

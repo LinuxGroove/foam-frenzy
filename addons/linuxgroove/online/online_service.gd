@@ -13,6 +13,7 @@ extends Node
 
 signal status_changed(status: String)
 signal _join_settled
+signal _connect_settled(ok: bool)
 
 ## No look-alikes in the Kenney fonts (0/O, 1/I/L, 2/Z, 5/S, 8/B).
 const CODE_ALPHABET := "CDFGHJKMNPQRTVWX34679"
@@ -28,6 +29,9 @@ var socket: NakamaSocket
 var bridge: NakamaMultiplayerBridge
 var room_code := ""
 var last_error := ""
+## A sign-in is under way; later callers wait for it instead of starting
+## a second one.
+var _connecting := false
 
 
 func _ready() -> void:
@@ -48,6 +52,16 @@ func is_connected_online() -> bool:
 func connect_async(display_name: String, game_id: String) -> bool:
 	if is_connected_online():
 		return true
+	if _connecting:
+		return await _connect_settled
+	_connecting = true
+	var ok := await _connect(display_name, game_id)
+	_connecting = false
+	_connect_settled.emit(ok)
+	return ok
+
+
+func _connect(display_name: String, game_id: String) -> bool:
 	var settings := get_node("/root/LGSettings")
 	_set_status("connecting")
 	client = Nakama.create_client(
@@ -162,6 +176,23 @@ func leaderboard_async(game_id: String, board: String, limit := 10) -> Variant:
 	if not res.owner_records.is_empty():
 		mine = row.call(res.owner_records[0])
 	return {"top": top, "mine": mine}
+
+
+## This player's stats object, written by the game's server module when the
+## host reports a round (`<game>.stats`, key `stats` by convention). {} when
+## the player hasn't finished an online round yet; null on failure.
+func stats_async(game_id: String, collection := "stats", key := "stats") -> Variant:
+	if not is_connected_online():
+		return null
+	var id := NakamaStorageObjectId.new("%s.%s" % [game_id, collection], key, session.user_id)
+	var res = await client.read_storage_objects_async(session, [id])
+	if res.is_exception():
+		last_error = str(res.get_exception().message)
+		return null
+	if res.objects.is_empty():
+		return {}
+	var value = JSON.parse_string(res.objects[0].value)
+	return value if value is Dictionary else {}
 
 
 ## The account id behind a multiplayer peer in the current room ("" if unknown).

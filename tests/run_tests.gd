@@ -479,6 +479,22 @@ func _test_leaderboard_panel() -> void:
 	panel.show_board({"top": top, "mine": top[2]})
 	check(panel._mine.text == "", "no separate line when you're in the top ten")
 	panel.free()
+	# Your own record, above the boards.
+	var title_script: Script = load("res://game/ui/title.gd")
+	var rec := LGLeaderboardPanel.new()
+	rec.setup("foam-frenzy", "Tester", [["wins", "All time"]], title_script.record_text)
+	rec.build()
+	check(rec._record.visible, "the record line shows when the game gives one")
+	rec.show_record({})
+	check(rec._record.text.begins_with("No online matches yet"), "a player with no online games is told how to start a record")
+	rec.show_record({"matches": 1, "wins": 0, "tags": 31, "outs": 6, "captures": 2})
+	check(rec._record.text == "Your online record: 1 match, 0 wins, 31 tags, 6 outs, 2 flag captures.", "the record reads: %s" % rec._record.text)
+	rec.free()
+	var plain := LGLeaderboardPanel.new()
+	plain.setup("foam-frenzy", "Tester", [["wins", "All time"]])
+	plain.build()
+	check(not plain._record.visible, "no record line without a record function")
+	plain.free()
 
 
 func _test_tutorial_ui() -> void:
