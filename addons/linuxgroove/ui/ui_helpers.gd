@@ -4,12 +4,20 @@ extends RefCounted
 
 
 ## Opens the on-screen keyboard when a gamepad user presses A on the field.
+## It opens on release: opening on press focuses the first key while A is
+## still held, and that same press then types it. A release whose press went
+## to another control (e.g. the button that moved focus here) is ignored.
 static func gamepad_text_entry(edit: LineEdit, uppercase_only := false) -> void:
 	edit.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_A:
+		if event is InputEventJoypadButton and event.button_index == JOY_BUTTON_A:
 			edit.accept_event()
-			OnScreenKeyboard.open(edit, uppercase_only)
+			if event.pressed:
+				edit.set_meta("_lg_a_down", true)
+			elif edit.get_meta("_lg_a_down", false):
+				edit.set_meta("_lg_a_down", false)
+				OnScreenKeyboard.open(edit, uppercase_only)
 	)
+	edit.focus_exited.connect(func() -> void: edit.set_meta("_lg_a_down", false))
 
 
 ## Focuses the first focusable control under `root` (call after building a menu).
