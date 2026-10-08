@@ -42,6 +42,12 @@ labs and a hall joined by sliding doors on a timer).
   player. Up to four players can share a screen, and couch players can also
   join a LAN or online game together.
 
+When the game starts with the internet on, it tells the LinuxGroove game
+server once, so we can count how many people play and on what: a random id
+made on the first run, the game's version, the OS and the CPU, and nothing
+else. It never signs in, and with no network nothing is sent. Set
+`DO_NOT_TRACK=1` to turn it off.
+
 Controls (controller first, keyboard and mouse always work):
 
 | Action | Controller | Keyboard and mouse |
