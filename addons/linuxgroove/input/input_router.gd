@@ -7,7 +7,7 @@ extends Node
 ##   "joy:a"        gamepad button by position: a (south), b (east), x (west),
 ##                  y (north), back, start, lb, rb, ls, rs, up, down, left, right
 ##   "axis:lx-"     stick axis and direction: lx, ly, rx, ry, lt, rt
-##   "mouse:left"   mouse button
+##   "mouse:left"   mouse button: left, right, middle, wheel_up, wheel_down
 ## The router remembers which kind of device was used last so prompts can show
 ## the matching glyphs (Xbox, PlayStation, Switch, Steam Deck or keyboard).
 
@@ -23,6 +23,14 @@ const JOY_NAMES := {
 	"ls": JOY_BUTTON_LEFT_STICK, "rs": JOY_BUTTON_RIGHT_STICK,
 	"up": JOY_BUTTON_DPAD_UP, "down": JOY_BUTTON_DPAD_DOWN,
 	"left": JOY_BUTTON_DPAD_LEFT, "right": JOY_BUTTON_DPAD_RIGHT,
+}
+const MOUSE_NAMES := {
+	"left": MOUSE_BUTTON_LEFT, "right": MOUSE_BUTTON_RIGHT, "middle": MOUSE_BUTTON_MIDDLE,
+	"wheel_up": MOUSE_BUTTON_WHEEL_UP, "wheel_down": MOUSE_BUTTON_WHEEL_DOWN,
+}
+const MOUSE_LABELS := {
+	MOUSE_BUTTON_LEFT: "Click", MOUSE_BUTTON_RIGHT: "Right click", MOUSE_BUTTON_MIDDLE: "Middle click",
+	MOUSE_BUTTON_WHEEL_UP: "Wheel up", MOUSE_BUTTON_WHEEL_DOWN: "Wheel down",
 }
 const AXIS_NAMES := {
 	"lx": JOY_AXIS_LEFT_X, "ly": JOY_AXIS_LEFT_Y,
@@ -145,8 +153,11 @@ static func make_event(spec: String) -> InputEvent:
 			jm.device = -1
 			return jm
 		"mouse":
+			if not MOUSE_NAMES.has(value):
+				push_warning("Input: unknown mouse button %s" % value)
+				return null
 			var mb := InputEventMouseButton.new()
-			mb.button_index = MOUSE_BUTTON_RIGHT if value == "right" else MOUSE_BUTTON_LEFT
+			mb.button_index = MOUSE_NAMES[value]
 			return mb
 	return null
 
@@ -179,7 +190,7 @@ func label_for_action(action: String) -> String:
 		if not want_joy and ev is InputEventKey:
 			return OS.get_keycode_string(ev.physical_keycode)
 		if not want_joy and ev is InputEventMouseButton:
-			return "Click" if ev.button_index == MOUSE_BUTTON_LEFT else "Right click"
+			return MOUSE_LABELS.get(ev.button_index, "Mouse")
 		if want_joy and ev is InputEventJoypadButton:
 			for n in JOY_NAMES:
 				if JOY_NAMES[n] == ev.button_index:
