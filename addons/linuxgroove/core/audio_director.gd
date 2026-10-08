@@ -25,7 +25,9 @@ func _ready() -> void:
 		_pool.append(_make_player("SFX"))
 
 
-func play_music(stream_or_path: Variant, volume_db := 0.0) -> void:
+## Cross-fades to a track. Tracks loop unless `loop` is false (a sting or a
+## jingle that should play once).
+func play_music(stream_or_path: Variant, volume_db := 0.0, loop := true) -> void:
 	var stream := _resolve(stream_or_path)
 	if stream == null:
 		return
@@ -33,7 +35,7 @@ func play_music(stream_or_path: Variant, volume_db := 0.0) -> void:
 		return
 	var next := _music_b if _current_music == _music_a else _music_a
 	if stream is AudioStreamOggVorbis:
-		(stream as AudioStreamOggVorbis).loop = true
+		(stream as AudioStreamOggVorbis).loop = loop
 	next.stream = stream
 	next.volume_db = -40.0
 	next.play()
