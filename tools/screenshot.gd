@@ -338,6 +338,17 @@ func _play_for(game: Game, seconds: float) -> void:
 	await _wait(seconds)
 
 
+## Waits (for a while at most) until this device's campers are all back in
+## play, so the camera is on them.
+func _all_in(game: Game) -> void:
+	var waited := 0.0
+	while game.locals.values().any(func(lc): return not lc.alive) and waited < 6.0:
+		await _wait(0.1)
+		waited += 0.1
+	if waited > 0.0:
+		await _wait(1.2)
+
+
 func _remove_couch() -> void:
 	for i in range(Session.local_seats.size() - 1, 0, -1):
 		Session.remove_local_seat(i)
@@ -509,6 +520,7 @@ func _shoot_matches() -> void:
 		for m in Rules.MODE_KEYS.size():
 			var game := await _match(m, id)
 			await _play_for(game, 8.0)
+			await _all_in(game)
 			await _shot("matches", "%s-%s" % [id, Rules.MODE_KEYS[m]])
 
 
@@ -518,7 +530,7 @@ func _shoot_in_match() -> void:
 	LGSettings.set_value("tutorial", "seen", "", false)
 	var game := await _match(Rules.Mode.TEAMS, "gym")
 	var waited := 0.0
-	while (game.phase != Rules.Phase.COUNTDOWN or game.countdown > 2.4) and waited < 20.0:
+	while (game.phase != Rules.Phase.COUNTDOWN or game.countdown > 1.2) and waited < 20.0:
 		await _wait(0.05)
 		waited += 0.05
 	await _shot("in-match", "countdown")
@@ -607,8 +619,16 @@ func _capture(game: Game) -> void:
 	await _shot("in-match", "flag-capture")
 
 
+## Runs the clock out, so the match ends the way the rules end it (a tie
+## goes to overtime first).
 func _results(game: Game, name: String) -> void:
-	game.host._finish()
+	game.host.clock = 0.05
+	var waited := 0.0
+	while game.phase != Rules.Phase.ENDED and waited < 20.0:
+		await _wait(0.1)
+		waited += 0.1
+	if game.phase != Rules.Phase.ENDED:
+		game.host._finish()
 	await _wait(ResultsPanel.SHOW_AFTER + 0.8)
 	await _shot("in-match", name)
 
@@ -622,6 +642,7 @@ func _shoot_couch() -> void:
 			Session.add_local_seat(90 + i)
 		var game := await _match(Rules.MODE_KEYS.find(c[2]), c[3], GameConfig.MAX_PLAYERS - int(c[1]))
 		await _play_for(game, 7.0)
+		await _all_in(game)
 		await _shot("couch", c[0])
 	_quiet()
 	Session.leave()
