@@ -188,7 +188,7 @@ func label_for_action(action: String) -> String:
 	var want_joy := is_gamepad()
 	for ev in InputMap.action_get_events(action):
 		if not want_joy and ev is InputEventKey:
-			return OS.get_keycode_string(ev.physical_keycode)
+			return OS.get_keycode_string(_key_code(ev))
 		if not want_joy and ev is InputEventMouseButton:
 			return MOUSE_LABELS.get(ev.button_index, "Mouse")
 		if want_joy and ev is InputEventJoypadButton:
@@ -301,11 +301,17 @@ func _stick_glyph(axis: int) -> Texture2D:
 
 
 func _key_glyph(ev: InputEventKey) -> Texture2D:
-	var key_name := OS.get_keycode_string(ev.physical_keycode).to_lower().replace(" ", "_")
+	var key_name := OS.get_keycode_string(_key_code(ev)).to_lower().replace(" ", "_")
 	match key_name:
 		"up", "down", "left", "right":
 			key_name = "arrows_" + key_name
 	return _load_glyph("keyboard", "keyboard_" + key_name)
+
+
+## A key event's key: its physical key, or its keycode for actions bound by
+## keycode (as Cogito's are).
+static func _key_code(ev: InputEventKey) -> Key:
+	return ev.physical_keycode if ev.physical_keycode != KEY_NONE else ev.keycode
 
 
 func _load_glyph(dir: String, file: String) -> Texture2D:
