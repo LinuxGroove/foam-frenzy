@@ -12,7 +12,10 @@ godot --path . -- --solo --mode=ctf --arena=lab                     # straight i
 godot --path . -- --practice                                        # straight into the practice round
 godot --headless --path . tools/net_check.tscn -- host /tmp/code [lan] &   # two copies play a match
 godot --headless --path . tools/net_check.tscn -- join /tmp/code [lan]
+xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --resolution 1280x720 tools/screenshot.tscn -- --all=docs/screenshots [group=lobby]
 ```
+
+The screenshot run needs a Vulkan driver to look like the game (Mesa's lavapipe works without a GPU: `apt install mesa-vulkan-drivers`); with only OpenGL the arenas come out paler.
 
 Run the script check and the tests before every commit. Headless runs reimport assets and rewrite many `*.glb.import` files and `icon.png.import`; revert those (`git checkout -- '*.import'`, `rm icon.png.import`) unless you meant to change them.
 
@@ -30,6 +33,7 @@ Run the script check and the tests before every commit. Headless runs reimport a
 | `addons/com.heroiclabs.nakama/` | Vendored Nakama client with a local patch (see its `VENDORED.md`) |
 | `tests/run_tests.gd` | Headless test runner; add checks with `check(ok, "what")` |
 | `tools/` | Script checker, screenshots (`xvfb-run`), `net_check` two-copy match |
+| `docs/screenshots/<group>/` | Every menu, arena, mode and in-match screen, with a README index, made by `tools/screenshot.tscn -- --all=docs/screenshots` |
 
 ## How the game is built
 

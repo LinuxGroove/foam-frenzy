@@ -693,6 +693,14 @@ func _test_match_scene() -> void:
 	lc._fire()
 	await _frames(3)
 	check(game.host.actors[lc.id].stats.shots >= 1, "firing reaches the host")
+	# Turning tips off in Settings turns off the one for being tagged out too.
+	LGSettings.set_value("tutorial", "hints", false, false)
+	game.hud.hints._seen = {}
+	var foe: int = game.roster.keys().filter(func(id): return id < 0)[0]
+	game._h_event(MatchHost.Ev.TAG, foe, lc.id)
+	await _frames(2)
+	check(not game.hud._hint.visible, "no tip when tips are turned off")
+	LGSettings.set_value("tutorial", "hints", true, false)
 	game.hud.open_pause()
 	check(game.hud.pause.visible and get_tree().paused, "pause stops a match on this device alone")
 	game.hud.pause.close()

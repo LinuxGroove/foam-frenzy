@@ -78,7 +78,9 @@ godot --path . -- --practice                                  # straight into th
 
 `tools/screenshot.tscn` saves screenshots of menus and matches without a
 screen (run it under `xvfb-run`; options are listed at the top of
-`tools/screenshot.gd`).
+`tools/screenshot.gd`). With `--all=docs/screenshots` it remakes
+[every screenshot](docs/screenshots/README.md): each menu, arena and mode, the
+lobby, couch play, the practice round and the screens during a match.
 
 `tools/net_check.tscn` plays a short match between two copies of the game,
 over the local network or online through a game server (for example the
