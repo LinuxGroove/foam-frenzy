@@ -60,7 +60,7 @@ func _process(delta: float) -> void:
 
 
 func _once(key: String, text: String, action := "") -> void:
-	if _seen.has(key) or hud._hint_t > 0.0:
+	if _seen.has(key) or hud._hint_t > 0.0 or not bool(LGSettings.get_value("tutorial", "hints", true)):
 		return
 	_seen[key] = true
 	LGSettings.set_value("tutorial", "seen", ",".join(_seen.keys()))
