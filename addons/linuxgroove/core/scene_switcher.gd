@@ -54,10 +54,17 @@ func _swap(path_or_packed: Variant, setup: Callable) -> void:
 	if old:
 		old.queue_free()
 		await old.tree_exited
+	# The new scene is current as soon as it enters the tree, as with Godot's
+	# own change_scene, so its _ready can use current_scene. In an exported
+	# game a method call on a null current_scene crashes rather than erroring.
+	node.tree_entered.connect(_make_current.bind(node), CONNECT_ONE_SHOT)
 	tree.root.add_child(node)
-	tree.current_scene = node
 	await _fade(0.0)
 	scene_changed.emit(node)
+
+
+func _make_current(node: Node) -> void:
+	get_tree().current_scene = node
 
 
 func _fade(target: float) -> void:
