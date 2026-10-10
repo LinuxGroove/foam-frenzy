@@ -236,6 +236,7 @@ func describe() -> Dictionary:
 			RenderingServer.get_video_adapter_api_version(), RenderingServer.get_current_rendering_method()],
 		"screen": _plain(DisplayServer.screen_get_size()),
 		"window": _plain(DisplayServer.window_get_size()),
+		"scale_3d": _finite(get_tree().root.scaling_3d_scale) if is_inside_tree() else 1.0,
 		"refresh_rate": _finite(DisplayServer.screen_get_refresh_rate()),
 		"pads": pads,
 		"locale": OS.get_locale(),

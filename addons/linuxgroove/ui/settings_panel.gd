@@ -8,6 +8,7 @@ extends VBoxContainer
 const VOLUMES := [[0.0, "Off"], [0.1, "10%"], [0.2, "20%"], [0.3, "30%"], [0.4, "40%"], [0.5, "50%"],
 	[0.6, "60%"], [0.7, "70%"], [0.8, "80%"], [0.9, "90%"], [1.0, "100%"]]
 const ON_OFF := [[true, "On"], [false, "Off"]]
+const RESOLUTIONS := [[0.0, "Auto"], [0.5, "50%"], [0.67, "67%"], [0.8, "80%"], [1.0, "100%"]]
 const AI_MODES := [["auto", "Automatic"], ["embedded", "Built-in only"], ["external", "Lemonade on this PC"], ["off", "Off (scripted bots)"]]
 const AI_MODELS := [["Qwen3-4B-Instruct-2507-GGUF", "Qwen3 4B (best talk)"], ["LFM2.5-1.2B-Instruct-GGUF", "LFM2.5 1.2B (lighter)"]]
 
@@ -18,6 +19,7 @@ func _ready() -> void:
 	add_theme_constant_override("separation", 8)
 	_row("Fullscreen", ON_OFF, "video", "fullscreen")
 	_row("Text size", [[0.85, "Small"], [1.0, "Normal"], [1.2, "Large"], [1.4, "Huge"]], "video", "ui_scale")
+	_row("3D resolution", RESOLUTIONS, "video", "resolution")
 	_row("Volume", VOLUMES, "audio", "master")
 	_row("Music", VOLUMES, "audio", "music")
 	_row("Sounds", VOLUMES, "audio", "sfx")
