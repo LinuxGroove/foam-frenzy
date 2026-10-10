@@ -43,6 +43,16 @@ func is_busy() -> bool:
 	return _busy
 
 
+## Quits the game. A play test that's recording ends first, with its survey.
+func quit() -> void:
+	var playtest := LGPlaytest.current()
+	if playtest and playtest.is_finishing():
+		return
+	if playtest and playtest.is_recording():
+		await playtest.finish("quit")
+	get_tree().quit()
+
+
 func _swap(path_or_packed: Variant, setup: Callable) -> void:
 	var packed: PackedScene = path_or_packed if path_or_packed is PackedScene else load(path_or_packed)
 	await _fade(1.0)

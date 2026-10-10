@@ -8,6 +8,8 @@ extends Node
 signal changed(section: String, key: String, value: Variant)
 
 const PATH := "user://settings.cfg"
+## The pixels Auto resolution draws the 3D at, at most: 1920x1200's worth.
+const AUTO_PIXELS := 1920.0 * 1200.0
 
 const BASE_DEFAULTS := {
 	"player": {
@@ -18,6 +20,9 @@ const BASE_DEFAULTS := {
 		"fullscreen": true,
 		"vsync": true,
 		"ui_scale": 1.0,
+		# The share of the screen's resolution the 3D draws at, upscaled with
+		# FSR; 0 is Auto (about 1920x1200's worth of pixels on bigger screens).
+		"resolution": 0.0,
 	},
 	"audio": {
 		"master": 0.9,
@@ -44,6 +49,9 @@ const BASE_DEFAULTS := {
 		"mode": "auto",
 		"external_url": "http://localhost:13305/api/v1",
 		"model": "Qwen3-4B-Instruct-2507-GGUF",
+	},
+	"playtest": {
+		"record": false,
 	},
 }
 
@@ -82,6 +90,21 @@ func get_value(section: String, key: String, fallback: Variant = null) -> Varian
 	if _defaults.has(section) and _defaults[section].has(key):
 		default = _defaults[section][key]
 	return _cfg.get_value(section, key, default)
+
+
+## Every setting with its current value, as {section: {key: value}}.
+func all_values() -> Dictionary:
+	var out := {}
+	for section in _defaults:
+		out[section] = {}
+		for key in _defaults[section]:
+			out[section][key] = get_value(section, key)
+	for section in _cfg.get_sections():
+		if not out.has(section):
+			out[section] = {}
+		for key in _cfg.get_section_keys(section):
+			out[section][key] = get_value(section, key)
+	return out
 
 
 func set_value(section: String, key: String, value: Variant, persist := true) -> void:
@@ -123,6 +146,36 @@ func apply_video() -> void:
 	DisplayServer.window_set_vsync_mode(
 		DisplayServer.VSYNC_ENABLED if get_value("video", "vsync") else DisplayServer.VSYNC_DISABLED)
 	window.content_scale_factor = float(get_value("video", "ui_scale"))
+	scale_3d(window)
+	if not window.size_changed.is_connected(_on_window_resized):
+		window.size_changed.connect(_on_window_resized)
+
+
+func _on_window_resized() -> void:
+	scale_3d(get_tree().root)
+
+
+## The share of the screen's resolution 3D draws at: the Resolution setting,
+## or for Auto as much as keeps it near 1920x1200 (all of it on smaller
+## screens, where nothing is gained).
+func resolution_scale() -> float:
+	var r := float(get_value("video", "resolution"))
+	if r > 0.0:
+		return clampf(r, 0.25, 1.0)
+	var size := DisplayServer.window_get_size()
+	return clampf(sqrt(AUTO_PIXELS / float(maxi(size.x * size.y, 1))), 0.5, 1.0)
+
+
+## Draws a viewport's 3D at [method resolution_scale], upscaled with FSR where
+## the renderer has it. The root viewport is done for you; a game that draws
+## 3D in SubViewports of its own (split screen) calls this for each of them.
+func scale_3d(viewport: Viewport) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var s := resolution_scale()
+	viewport.scaling_3d_scale = s
+	var fsr := s < 0.99 and RenderingServer.get_current_rendering_method() != "gl_compatibility"
+	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if fsr else Viewport.SCALING_3D_MODE_BILINEAR
 
 
 func apply_audio() -> void:

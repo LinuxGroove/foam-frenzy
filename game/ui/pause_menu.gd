@@ -33,6 +33,7 @@ func setup(p_game: Game) -> void:
 	_note = LGUi.label("", "HintLabel")
 	_col.add_child(_note)
 	_col.add_child(LGUi.button("Resume", close, 440))
+	_col.add_child(LGPlaytestButton.make(440))
 	_col.add_child(LGUi.button("Tutorial", _show_howto, 440))
 	_col.add_child(LGUi.button("Controls", _toggle_help, 440))
 	_help = VBoxContainer.new()

@@ -38,8 +38,11 @@ sudo snap connect foam-frenzy:joystick
 
 ## Where data lives
 
-Settings, the player name and tutorial progress are in
-`$SNAP_USER_DATA/.local/share/foam-frenzy`.
+Settings, the player name, tutorial progress, logs and play test recordings
+are in `$SNAP_USER_COMMON/.local/share/foam-frenzy`, which isn't copied for every
+revision. The launcher (`snap/local/foam-frenzy`) sets `XDG_DATA_HOME` there,
+after the gnome extension points it at `$SNAP_USER_DATA`, and its first run
+brings over what an older revision kept in `$SNAP_USER_DATA/.local/share`.
 
 ## Updating Godot
 

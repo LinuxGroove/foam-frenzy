@@ -1,4 +1,16 @@
 #!/bin/sh
 # Starts the exported game. Release builds of Godot don't accept --main-pack;
 # they load foam-frenzy.pck from beside the binary on their own.
+#
+# Saves, settings, logs and play test recordings (Godot's user://) live in
+# the snap's common folder, which isn't copied for every revision. The gnome
+# extension's launcher points XDG_DATA_HOME at the versioned folder, so it's
+# set here, after it. The first run brings over what an older revision kept.
+data="$SNAP_USER_COMMON/.local/share"
+if [ ! -d "$data" ] && [ -d "$SNAP_USER_DATA/.local/share" ]; then
+	mkdir -p "$SNAP_USER_COMMON/.local"
+	cp -a "$SNAP_USER_DATA/.local/share" "$data"
+fi
+mkdir -p "$data"
+export XDG_DATA_HOME="$data"
 exec "$SNAP/game/foam-frenzy" "$@"
