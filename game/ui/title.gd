@@ -126,7 +126,7 @@ func _show_main() -> void:
 
 
 func _quit() -> void:
-	get_tree().quit()
+	LGScenes.quit()
 
 
 func _show_name(first_time: bool) -> void:

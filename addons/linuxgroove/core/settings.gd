@@ -45,6 +45,9 @@ const BASE_DEFAULTS := {
 		"external_url": "http://localhost:13305/api/v1",
 		"model": "Qwen3-4B-Instruct-2507-GGUF",
 	},
+	"playtest": {
+		"record": false,
+	},
 }
 
 var _cfg := ConfigFile.new()
@@ -82,6 +85,21 @@ func get_value(section: String, key: String, fallback: Variant = null) -> Varian
 	if _defaults.has(section) and _defaults[section].has(key):
 		default = _defaults[section][key]
 	return _cfg.get_value(section, key, default)
+
+
+## Every setting with its current value, as {section: {key: value}}.
+func all_values() -> Dictionary:
+	var out := {}
+	for section in _defaults:
+		out[section] = {}
+		for key in _defaults[section]:
+			out[section][key] = get_value(section, key)
+	for section in _cfg.get_sections():
+		if not out.has(section):
+			out[section] = {}
+		for key in _cfg.get_section_keys(section):
+			out[section][key] = get_value(section, key)
+	return out
 
 
 func set_value(section: String, key: String, value: Variant, persist := true) -> void:
