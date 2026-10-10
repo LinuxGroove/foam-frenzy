@@ -36,6 +36,7 @@ var _ratings := {}
 var _texts := {}
 var _choices := {}
 var _order: Array[String] = []
+var _asked := {}
 
 
 static func make(p_options := {}) -> LGPlaytestSurvey:
@@ -98,6 +99,7 @@ func _question(text: String) -> void:
 
 func _rating(id: String, text: String) -> void:
 	_question(text)
+	_asked[id] = text
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var group := ButtonGroup.new()
@@ -129,6 +131,7 @@ func _on_rating_toggled(on: bool) -> void:
 
 func _written(id: String, text: String) -> void:
 	_question(text)
+	_asked[id] = text
 	var e := LineEdit.new()
 	e.placeholder_text = "Type here (optional)"
 	e.max_length = 1000
@@ -142,6 +145,7 @@ func _written(id: String, text: String) -> void:
 func _choice(id: String, label: String, choices: Array) -> void:
 	var c := LGCycler.make(label, choices, "", Callable(), WIDTH - 40)
 	_list.add_child(c)
+	_asked[id] = label
 	_choices[id] = c
 	_order.append(id)
 
@@ -183,6 +187,8 @@ func answers() -> Dictionary:
 func submit() -> void:
 	var a := answers()
 	a["answered"] = true
+	# The wording as well, so a recording explains itself.
+	a["questions"] = _asked.duplicate()
 	done.emit(a)
 	queue_free()
 

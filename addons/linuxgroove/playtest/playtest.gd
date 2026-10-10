@@ -110,11 +110,11 @@ static func event(type: String, data := {}) -> void:
 
 
 ## An event worth seeing, such as dying or an ending: the pictures from just
-## before and after it are kept as well.
+## before and after it are kept as well, and its line says "moment": true.
 static func moment(type: String, data := {}) -> void:
 	var p := current()
 	if p and p.is_recording():
-		p.log_event(type, data)
+		p.log_event(type, data.merged({"moment": true}))
 		p._keep_pictures()
 
 
