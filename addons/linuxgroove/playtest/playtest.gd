@@ -385,9 +385,12 @@ func _input(event: InputEvent) -> void:
 	if _idle:
 		_idle = false
 		log_event("active")
-	if device != _device:
-		_device = device
-		log_event("device", {"device": device, "name": Input.get_joy_name(event.device) if device == "pad" else ""})
+	# Keyboard and mouse are one way of playing; a line each time the hand
+	# moves between them would bury everything else.
+	var way := "pad" if device == "pad" else "keyboard and mouse"
+	if way != _device:
+		_device = way
+		log_event("device", {"device": way, "name": Input.get_joy_name(event.device) if device == "pad" else ""})
 	if _is_press(event):
 		_presses[device] = int(_presses.get(device, 0)) + 1
 
