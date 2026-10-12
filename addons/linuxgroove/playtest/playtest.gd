@@ -377,6 +377,8 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			open_note()
 		return
+	if _open and (event is InputEventKey or event is InputEventJoypadButton or event is InputEventJoypadMotion):
+		_keep_focus()
 	if not is_recording():
 		return
 	var device := device_of(event)
@@ -394,6 +396,28 @@ func _input(event: InputEvent) -> void:
 		log_event("device", {"device": way, "name": Input.get_joy_name(event.device) if device == "pad" else ""})
 	if _is_press(event):
 		_presses[device] = int(_presses.get(device, 0)) + 1
+
+
+## While a panel is open, nothing behind it gets the keys or the pad: the
+## recorder is last in the tree (see [method _show]), so this comes before
+## every menu's own _unhandled_input.
+func _unhandled_input(event: InputEvent) -> void:
+	if _open and not event is InputEventMouseMotion:
+		get_viewport().set_input_as_handled()
+
+
+## Puts focus back on the open panel if it has gone elsewhere (a tap on the
+## game behind, a screen that opened). That press only shows where focus is.
+## The on-screen keyboard looks after its own focus.
+func _keep_focus() -> void:
+	if OnScreenKeyboard.current():
+		return
+	var f := get_viewport().gui_get_focus_owner()
+	if f == null or not _open.is_ancestor_of(f):
+		var first := LGUi.first_focusable(_open)
+		if first:
+			first.grab_focus()
+			get_viewport().set_input_as_handled()
 
 
 ## "keyboard", "mouse", "pad", or "" for events that don't show someone playing.
@@ -458,8 +482,11 @@ func _on_scene_changed(scene: Node) -> void:
 		_intro_pending = false
 		show_intro()
 	elif _open:
-		# The new screen focused its own menu; the card stays in charge.
-		LGUi.focus_first(_open)
+		# The new screen focused its own menu and came after the recorder in
+		# the tree; the card stays in charge.
+		get_parent().move_child(self, -1)
+		if not OnScreenKeyboard.current():
+			LGUi.focus_first(_open)
 
 
 static func _scene_name(scene: Node) -> String:
@@ -552,6 +579,9 @@ func _show(panel: Control) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	panel.tree_exited.connect(_on_panel_closed.bind(panel), CONNECT_ONE_SHOT)
 	_overlay.add_child(panel)
+	# Last in the tree, so the panel gets the keys and the pad before the
+	# game's menus behind it do (a pause menu closes on B too).
+	get_parent().move_child(self, -1)
 
 
 func _on_panel_closed(panel: Control) -> void:
