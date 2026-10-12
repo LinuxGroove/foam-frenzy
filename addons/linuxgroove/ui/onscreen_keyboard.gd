@@ -4,7 +4,10 @@ extends PanelContainer
 ## with no physical keyboard (handhelds, Ubuntu Core kiosks).
 ##
 ## Usage: OnScreenKeyboard.open(line_edit) from a LineEdit's focus handler.
-## D-pad or stick moves between keys, A types, B deletes, Start or Done closes.
+## D-pad or stick moves between keys, A types, B deletes (and closes the
+## keyboard when there's nothing left to delete), Start or Done closes.
+## While it's open it has the controller to itself, even over a paused game,
+## and it closes if its field goes away.
 
 signal closed(text: String)
 
@@ -16,6 +19,9 @@ var _grid: GridContainer
 var _shift := false
 var _letter_buttons: Array[Button] = []
 var _preview: Label
+var _closed := false
+
+static var _current: WeakRef
 
 
 static func open(p_target: LineEdit, p_uppercase_only := false) -> OnScreenKeyboard:
@@ -24,9 +30,27 @@ static func open(p_target: LineEdit, p_uppercase_only := false) -> OnScreenKeybo
 	kb.uppercase_only = p_uppercase_only
 	var layer := CanvasLayer.new()
 	layer.layer = 100
+	# Fields are often on a paused game's menus (a pause menu, a play test note).
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	# Taps and clicks off the keyboard close it rather than reach what's behind.
+	var outside := Control.new()
+	outside.name = "Outside"
+	outside.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outside.gui_input.connect(kb._on_outside_input)
+	layer.add_child(outside)
 	layer.add_child(kb)
+	p_target.tree_exiting.connect(kb._on_target_gone)
+	p_target.visibility_changed.connect(kb._on_target_visibility)
+	# Last in the tree, so its _unhandled_input comes before every menu's.
 	p_target.get_tree().root.add_child(layer)
+	_current = weakref(kb)
 	return kb
+
+
+## The keyboard that's open, or null.
+static func current() -> OnScreenKeyboard:
+	var kb: OnScreenKeyboard = _current.get_ref() if _current else null
+	return kb if kb and kb.is_inside_tree() else null
 
 
 func _ready() -> void:
@@ -154,19 +178,65 @@ func _update_preview() -> void:
 		_preview.text = target.text + "_"
 
 
-func _close() -> void:
-	var text := target.text if target else ""
-	if target:
-		target.text_submitted.emit(text)
-		target.grab_focus()
+## Done, or Start. `submit` false puts the keyboard away without
+## submitting the field (B with nothing left to delete).
+func _close(submit := true) -> void:
+	if _closed:
+		return
+	_closed = true
+	var text := ""
+	if is_instance_valid(target):
+		text = target.text
+		_let_go()
+		if submit:
+			target.text_submitted.emit(text)
+		if is_instance_valid(target) and target.is_visible_in_tree():
+			target.grab_focus()
 	closed.emit(text)
 	get_parent().queue_free()
 
 
+func _let_go() -> void:
+	if target.tree_exiting.is_connected(_on_target_gone):
+		target.tree_exiting.disconnect(_on_target_gone)
+		target.visibility_changed.disconnect(_on_target_visibility)
+
+
+## The field's page went away: there's nothing left to type into.
+func _on_target_gone() -> void:
+	_let_go()
+	target = null
+	_close(false)
+
+
+func _on_target_visibility() -> void:
+	if not target.is_visible_in_tree():
+		_close(false)
+
+
+func _on_outside_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_close()
+
+
+func _input(event: InputEvent) -> void:
+	# Something behind took focus (a screen that just opened): the pad comes
+	# back to the keys, and that press only shows where it is.
+	if (event is InputEventJoypadButton or event is InputEventJoypadMotion) and not _closed:
+		var f := get_viewport().gui_get_focus_owner()
+		if f == null or not is_ancestor_of(f):
+			(_grid.get_child(10) as Button).grab_focus()
+			get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		_backspace()
-		get_viewport().set_input_as_handled()
+		if is_instance_valid(target) and target.text.length() > 0:
+			_backspace()
+		else:
+			_close(false)
 	elif event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_START:
 		_close()
+	if not event is InputEventMouseMotion:
+		# Nothing behind the keyboard sees the keys or the pad while it's open.
 		get_viewport().set_input_as_handled()
