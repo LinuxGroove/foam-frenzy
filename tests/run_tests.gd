@@ -751,8 +751,12 @@ func _check_focus_pause(watcher: LGFocusPause, menu_open: Callable, close: Calla
 	watcher.focus_lost()
 	await get_tree().create_timer(grace, true, false, true).timeout
 	check(menu_open.call() and get_tree().paused == pauses, "losing focus opens the pause menu")
+	var track: AudioStreamPlayer = null
 	if holds_sound:
 		check(probe.stream_paused and LGAudio.is_game_paused(), "the pause menu holds the music and the game's sounds")
+		LGAudio.play_music(_silence())
+		track = LGAudio._current_music
+		check(track.stream_paused, "music that starts behind the pause menu waits for Resume")
 	else:
 		check(not probe.stream_paused and not LGAudio.is_game_paused(), "a menu over a game that carries on leaves its sound playing")
 	if pauses:
@@ -761,6 +765,9 @@ func _check_focus_pause(watcher: LGFocusPause, menu_open: Callable, close: Calla
 	await get_tree().process_frame
 	check(not menu_open.call() and not get_tree().paused, "the game carries on after Resume")
 	check(probe.playing and not LGAudio.is_game_paused(), "Resume picks the sound up where it stopped")
+	if track:
+		check(track.playing, "Resume starts the music that waited")
+		LGAudio.stop_music()
 	probe.queue_free()
 	LGSettings.set_value("video", "focus_pause", false, false)
 	check(not watcher.pause_now() and not menu_open.call(), "Pause when switching away can be turned off")
