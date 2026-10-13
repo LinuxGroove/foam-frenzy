@@ -163,6 +163,11 @@ func is_finishing() -> bool:
 	return _finishing
 
 
+## Whether one of the recorder's panels (a note, the survey, a card) is open.
+func has_panel() -> bool:
+	return is_instance_valid(_open)
+
+
 ## Seconds since the session started.
 func elapsed() -> float:
 	return (Time.get_ticks_msec() - _t0) / 1000.0

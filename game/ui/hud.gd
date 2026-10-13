@@ -72,6 +72,7 @@ func setup(p_game: Game) -> void:
 	pause.setup(game)
 	howto = HowToPanel.new()
 	root.add_child(howto)
+	LGFocusPause.watch(self, open_pause)
 	if practice:
 		guide = PracticeGuide.new()
 		add_child(guide)
