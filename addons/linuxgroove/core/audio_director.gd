@@ -47,6 +47,11 @@ func play_music(stream_or_path: Variant, volume_db := 0.0, loop := true) -> void
 	next.stream = stream
 	next.volume_db = -40.0
 	next.play()
+	if _game_paused:
+		# A track that starts while a pause menu holds the sound waits with it.
+		next.stream_paused = true
+		if not _held.has(next):
+			_held.append(next)
 	var tween := create_tween().set_parallel()
 	tween.tween_property(next, "volume_db", volume_db, FADE_TIME)
 	if _sounding(_current_music):
@@ -79,10 +84,9 @@ func play_sfx(stream_or_path: Variant, volume_db := 0.0, pitch_jitter := 0.0) ->
 
 
 ## Holds the music and every sound playing in the game where they are, or
-## picks them up again. A pause menu calls it when the game really stops (not
-## over a match that carries on for players on other devices). Sounds started
-## while it holds, such as the menu's own, play as usual, and a scene change
-## picks everything up again.
+## picks them up again. A pause menu calls it while it's open. Sounds started
+## while it holds, such as the menu's own, play as usual, but a new track waits
+## with the rest, and a scene change picks everything up again.
 func pause_game(on: bool) -> void:
 	if on == _game_paused:
 		return
