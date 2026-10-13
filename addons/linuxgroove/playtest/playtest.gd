@@ -57,6 +57,7 @@ var _overlay: CanvasLayer
 var _dot: Label
 var _open: Control
 var _was_paused := false
+var _was_held := false
 var _was_mouse := Input.MOUSE_MODE_VISIBLE
 var _was_focus: Control
 var _follow: WeakRef
@@ -576,11 +577,13 @@ func _show(panel: Control) -> void:
 		_open.queue_free()
 	else:
 		_was_paused = get_tree().paused
+		_was_held = LGAudio.is_game_paused()
 		_was_mouse = Input.mouse_mode
 		_was_focus = get_viewport().gui_get_focus_owner()
 	_open = panel
 	if get_tree().get_multiplayer().get_peers().is_empty():
 		get_tree().paused = true
+		LGAudio.pause_game(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	panel.tree_exited.connect(_on_panel_closed.bind(panel), CONNECT_ONE_SHOT)
 	_overlay.add_child(panel)
@@ -594,6 +597,7 @@ func _on_panel_closed(panel: Control) -> void:
 		return
 	_open = null
 	get_tree().paused = _was_paused
+	LGAudio.pause_game(_was_held)
 	Input.mouse_mode = _was_mouse
 	if is_instance_valid(_was_focus) and _was_focus.is_visible_in_tree():
 		_was_focus.grab_focus()
