@@ -60,6 +60,7 @@ func open() -> void:
 	_note.text = "The match is paused." if _paused_tree else "The match carries on for everyone else."
 	if _paused_tree:
 		get_tree().paused = true
+		LGAudio.pause_game(true)
 	_help.visible = false
 	LGUi.focus_first(_col)
 
@@ -70,6 +71,7 @@ func close() -> void:
 	visible = false
 	if _paused_tree:
 		get_tree().paused = false
+		LGAudio.pause_game(false)
 		_paused_tree = false
 	var f := get_viewport().gui_get_focus_owner()
 	if f:

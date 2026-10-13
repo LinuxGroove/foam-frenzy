@@ -348,10 +348,13 @@ func _test_scene_switcher() -> void:
 		packed.pack(node)
 		node.free()
 		made.append(packed)
+	# Sound a pause menu held is let go when the scene changes.
+	LGAudio.pause_game(true)
 	LGScenes.change_scene(made[0])
 	LGScenes.change_scene(made[1])
 	LGScenes.change_scene(made[2])
 	await _wait_scene(placeholder)
+	check(not LGAudio.is_game_paused(), "a scene change lets go of the sound a pause menu held")
 	var found := []
 	for c in tree.root.get_children():
 		if str(c.name).begins_with("Scene") or c.name == "Placeholder":
@@ -730,12 +733,14 @@ func _test_match_scene() -> void:
 	check(count == 1, "only one screen is up at a time")
 
 
-## The window losing focus opens the pause menu (LGFocusPause), unless focus
-## comes straight back, the setting is off or the on-screen keyboard is up.
-func _check_focus_pause(watcher: LGFocusPause, menu_open: Callable, close: Callable, pauses := true) -> void:
+## The window losing focus opens the pause menu (LGFocusPause), which holds
+## the game's sound until Resume, unless focus comes straight back, the
+## setting is off or the on-screen keyboard is up.
+func _check_focus_pause(watcher: LGFocusPause, menu_open: Callable, close: Callable, pauses := true, holds_sound := true) -> void:
 	check(watcher != null, "the game watches for the window losing focus")
 	if watcher == null:
 		return
+	var probe := _sound_probe()
 	# The watcher counts real milliseconds, so wait in real time.
 	var grace := LGFocusPause.GRACE_MSEC / 1000.0 + 0.15
 	watcher.focus_lost()
@@ -746,11 +751,17 @@ func _check_focus_pause(watcher: LGFocusPause, menu_open: Callable, close: Calla
 	watcher.focus_lost()
 	await get_tree().create_timer(grace, true, false, true).timeout
 	check(menu_open.call() and get_tree().paused == pauses, "losing focus opens the pause menu")
+	if holds_sound:
+		check(probe.stream_paused and LGAudio.is_game_paused(), "the pause menu holds the music and the game's sounds")
+	else:
+		check(not probe.stream_paused and not LGAudio.is_game_paused(), "a menu over a game that carries on leaves its sound playing")
 	if pauses:
 		check(not watcher.pause_now(), "losing focus again while paused does nothing")
 	close.call()
 	await get_tree().process_frame
 	check(not menu_open.call() and not get_tree().paused, "the game carries on after Resume")
+	check(probe.playing and not LGAudio.is_game_paused(), "Resume picks the sound up where it stopped")
+	probe.queue_free()
 	LGSettings.set_value("video", "focus_pause", false, false)
 	check(not watcher.pause_now() and not menu_open.call(), "Pause when switching away can be turned off")
 	LGSettings.set_value("video", "focus_pause", true, false)
@@ -760,6 +771,16 @@ func _check_focus_pause(watcher: LGFocusPause, menu_open: Callable, close: Calla
 	check(not watcher.pause_now() and not menu_open.call(), "losing focus leaves the on-screen keyboard alone")
 	field.queue_free()
 	await _frames(2)
+
+
+## A sound that plays on while the tree is paused, as the music does.
+func _sound_probe() -> AudioStreamPlayer:
+	var p := AudioStreamPlayer.new()
+	p.stream = AudioStreamGenerator.new()
+	p.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(p)
+	p.play()
+	return p
 
 
 ## Plays the practice round the way a player would and checks the guide.

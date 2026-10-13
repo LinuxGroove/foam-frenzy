@@ -4,15 +4,23 @@ extends Node
 ## Music cross-fades between two players on the "Music" bus. One-shot sounds
 ## use a small pool of players on the "SFX" bus. The buses come from
 ## `default_bus_layout.tres`; if a game has none they are created here.
+##
+## A game's pause menu calls [method pause_game] so the music and every sound
+## in the game stop where they are while it's open.
 
 const POOL_SIZE := 8
 const FADE_TIME := 1.2
+## The kinds of node whose sound [method pause_game] holds.
+const PLAYERS := ["AudioStreamPlayer", "AudioStreamPlayer2D", "AudioStreamPlayer3D"]
 
 var _music_a: AudioStreamPlayer
 var _music_b: AudioStreamPlayer
 var _current_music: AudioStreamPlayer
 var _pool: Array[AudioStreamPlayer] = []
 var _cache := {}
+var _game_paused := false
+## The players [method pause_game] paused, to pick up again.
+var _held: Array[Node] = []
 
 
 func _ready() -> void:
@@ -31,7 +39,7 @@ func play_music(stream_or_path: Variant, volume_db := 0.0, loop := true) -> void
 	var stream := _resolve(stream_or_path)
 	if stream == null:
 		return
-	if _current_music and _current_music.playing and _current_music.stream == stream:
+	if _sounding(_current_music) and _current_music.stream == stream:
 		return
 	var next := _music_b if _current_music == _music_a else _music_a
 	if stream is AudioStreamOggVorbis:
@@ -41,7 +49,7 @@ func play_music(stream_or_path: Variant, volume_db := 0.0, loop := true) -> void
 	next.play()
 	var tween := create_tween().set_parallel()
 	tween.tween_property(next, "volume_db", volume_db, FADE_TIME)
-	if _current_music and _current_music.playing:
+	if _sounding(_current_music):
 		var old := _current_music
 		tween.tween_property(old, "volume_db", -40.0, FADE_TIME)
 		tween.chain().tween_callback(old.stop)
@@ -49,7 +57,7 @@ func play_music(stream_or_path: Variant, volume_db := 0.0, loop := true) -> void
 
 
 func stop_music() -> void:
-	if _current_music and _current_music.playing:
+	if _sounding(_current_music):
 		var old := _current_music
 		var tween := create_tween()
 		tween.tween_property(old, "volume_db", -40.0, FADE_TIME)
@@ -70,9 +78,42 @@ func play_sfx(stream_or_path: Variant, volume_db := 0.0, pitch_jitter := 0.0) ->
 	player.play()
 
 
+## Holds the music and every sound playing in the game where they are, or
+## picks them up again. A pause menu calls it when the game really stops (not
+## over a match that carries on for players on other devices). Sounds started
+## while it holds, such as the menu's own, play as usual, and a scene change
+## picks everything up again.
+func pause_game(on: bool) -> void:
+	if on == _game_paused:
+		return
+	_game_paused = on
+	if on:
+		for type in PLAYERS:
+			for p in get_tree().root.find_children("*", type, true, false):
+				if p.playing and not p.stream_paused:
+					p.stream_paused = true
+					_held.append(p)
+		return
+	for p in _held:
+		# One the paused tree also stops starts again when the tree unpauses.
+		if is_instance_valid(p) and p.is_inside_tree() and p.can_process():
+			p.stream_paused = false
+	_held.clear()
+
+
+## Whether [method pause_game] is holding the game's sound.
+func is_game_paused() -> bool:
+	return _game_paused
+
+
+## Playing, or held by [method pause_game] (a paused player isn't `playing`).
+func _sounding(p: AudioStreamPlayer) -> bool:
+	return p != null and (p.playing or p.stream_paused)
+
+
 func _free_player() -> AudioStreamPlayer:
 	for p in _pool:
-		if not p.playing:
+		if not _sounding(p):
 			return p
 	return _pool[0]
 

@@ -64,6 +64,10 @@ func _swap(path_or_packed: Variant, setup: Callable) -> void:
 	if old:
 		old.queue_free()
 		await old.tree_exited
+	# Sound a pause menu held doesn't stay held into the next scene.
+	var audio := tree.root.get_node_or_null("LGAudio")
+	if audio:
+		audio.pause_game(false)
 	# The new scene is current as soon as it enters the tree, as with Godot's
 	# own change_scene, so its _ready can use current_scene. In an exported
 	# game a method call on a null current_scene crashes rather than erroring.
