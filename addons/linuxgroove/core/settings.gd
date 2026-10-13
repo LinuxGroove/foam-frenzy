@@ -23,6 +23,8 @@ const BASE_DEFAULTS := {
 		# The share of the screen's resolution the 3D draws at, upscaled with
 		# FSR; 0 is Auto (about 1920x1200's worth of pixels on bigger screens).
 		"resolution": 0.0,
+		# Open the pause menu when the window loses focus (LGFocusPause).
+		"focus_pause": true,
 	},
 	"audio": {
 		"master": 0.9,

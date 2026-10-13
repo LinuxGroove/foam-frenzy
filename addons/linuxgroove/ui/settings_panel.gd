@@ -18,6 +18,7 @@ var _ai_state: Label
 func _ready() -> void:
 	add_theme_constant_override("separation", 8)
 	_row("Fullscreen", ON_OFF, "video", "fullscreen")
+	_row("Pause when switching away", ON_OFF, "video", "focus_pause")
 	_row("Text size", [[0.85, "Small"], [1.0, "Normal"], [1.2, "Large"], [1.4, "Huge"]], "video", "ui_scale")
 	_row("3D resolution", RESOLUTIONS, "video", "resolution")
 	_row("Volume", VOLUMES, "audio", "master")
