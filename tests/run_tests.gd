@@ -776,11 +776,26 @@ func _check_focus_pause(watcher: LGFocusPause, menu_open: Callable, close: Calla
 ## A sound that plays on while the tree is paused, as the music does.
 func _sound_probe() -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
-	p.stream = AudioStreamGenerator.new()
+	p.stream = _silence()
 	p.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(p)
 	p.play()
 	return p
+
+
+## A second of silence on a loop. Not an AudioStreamGenerator: its playback
+## points at the stream without holding it, so freeing the player can leave
+## the mixer reading freed memory, and a release export hangs at exit.
+func _silence() -> AudioStreamWAV:
+	var data := PackedByteArray()
+	data.resize(44100 * 2)
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 44100
+	wav.data = data
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_end = 44100
+	return wav
 
 
 ## Plays the practice round the way a player would and checks the guide.
